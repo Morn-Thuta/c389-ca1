@@ -1,0 +1,43 @@
+# --- Privacy / size: never commit data, runs, weights or photos (PRD §4) ---
+datasets/
+dataset/
+runs/
+artifacts/
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Images and video (reports/*.png is allowed: generated plots only, no raw photos)
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.gif
+*.webp
+*.heic
+*.mp4
+*.mov
+!reports/*.png
+reports/error_gallery/
+
+# --- Secrets (Roboflow API key lives in Colab Secrets or getpass, never in git) ---
+.env
+.env.*
+*.key
+secrets*.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# --- Notebooks / editors / OS ---
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
