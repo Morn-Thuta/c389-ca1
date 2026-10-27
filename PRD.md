@@ -10,12 +10,15 @@ Deadline: **Lesson 8** (live demo + CA1 report, same day)
 - This is a polytechnic coursework project.
 - The lecturer supplies Colab notebooks: `L3_training.ipynb`, `L4_deployment.ipynb`, `L5A_new_class.ipynb` and `L5B_tracking.ipynb`.
 - We extend them rather than replace them. Keep their function names and the Drive folder layout so they still work.
-- Individual worksheets and reflection journals are written by students, **not by AI**. This PRD covers code only.
+- Individual worksheets, reflection journals and the **CA1 report** are written by students, **not by AI** (assessment brief §6: AI-written work is marked in the F band). This PRD covers code, and the evidence the code produces for the report.
+- The report follows the lecturer's CA1 report template. Each section needs evidence from our own system, which section 8 and section 9 produce. Where each piece of evidence goes is listed in section 15.
 
 ## 2. Problem
 
 - **Base task:** count how many people at a pedestrian crossing are moving **left** vs **right**, from a **single still image** taken by a fixed camera.
 - **Twist 2 (bicycles only, confirmed by the teacher):** detect bicycles, and classify every crosser as **pedestrian** or **cyclist**, with direction.
+
+**Scope decision (record in report §2.3):** the brief's T2 says "bicycles, skateboards or scooters" and classifies crossers as "pedestrian or wheeled". The teacher confirmed that our team does **bicycles only**. In our system **cyclist** means "wheeled" in the brief's sense, limited to bicycles. Skateboards and scooters were cut. The reason: we don't have enough data to label three extra vehicle types by Lesson 8. A rider on a scooter or skateboard is counted as a **pedestrian**, and this is listed as a known limit (report §3.4).
 
 **Users:** campus or traffic planners, who use the counts to judge flow imbalance and how many cyclists use the crossing.
 
@@ -31,7 +34,7 @@ Deadline: **Lesson 8** (live demo + CA1 report, same day)
 **Out of scope**
 - Identifying people (faces, re-identification)
 - Tracking across frames, video streaming, counting across a sequence (a count is **per image**)
-- Scooters, skateboards and other wheeled devices
+- Scooters, skateboards and other wheeled devices (scope decision, see section 2)
 - Alarms, alerts, and connections to other systems
 
 ## 4. Hard rules (never violate)
@@ -45,6 +48,8 @@ Deadline: **Lesson 8** (live demo + CA1 report, same day)
 | Never put the Roboflow API key in code or notebooks. Use Colab Secrets `ROBOFLOW_API_KEY` or `getpass` | Notebooks go to the team repo |
 | Use the test set once, for the final comparison only. No tuning against it | Keeps the test result honest |
 | Images of real people never leave the module drive or Roboflow, and are never committed to git | Privacy commitment from Lesson 1 |
+| Notebooks are committed with **all outputs cleared**. `scripts/check_notebooks.py` must pass before every push | Notebook outputs can embed photos of people, and the brief requires notebooks in the repo |
+| At the end of the module, delete every photo, dataset, run and Roboflow project (see section 11) | Assessment brief §6, data and privacy |
 
 ## 5. Data
 
@@ -147,10 +152,22 @@ Every count key is always present, even at 0. An empty scene returns `200` with 
    - The team hand-counts each test image into `test_counts.csv` (`image, pedestrian_left, pedestrian_right, cyclist_left, cyclist_right`).
    - Report the mean absolute error per count and the % of images with an exact count.
 4. **Pedestrian vs cyclist classification:** a confusion table over matched ground-truth people.
-5. **Error gallery:** save the worst 10 images, with predictions and ground truth drawn on, sorted into missed person, wrong direction, wrong role, or false bike.
-6. **Threshold sweep:** counts and F1 at 0.15, 0.25, 0.40, 0.60 and 0.80, on validation.
+5. **Error gallery:** save the worst 10 images with predictions and ground truth drawn on, and write `reports/error_gallery.csv` (`image, failure_type, source, note`).
+   - `failure_type` is one of: missed person, false person, wrong direction, missed bike, false bike, wrong role.
+   - `source` is **detection** or **logic**, as report §3.3 requires. Use this rule:
 
-Outputs: `reports/metrics_*.json`, `reports/*.png`, `reports/error_gallery/`.
+   | failure_type | source |
+   |---|---|
+   | missed person, false person, wrong direction, missed bike, false bike | detection |
+   | wrong role, where the person and the bike were both detected correctly | **logic** (the linking rule decided wrongly) |
+   | wrong role, caused by a missed or false bike | detection |
+
+6. **Threshold sweep:** counts and F1 at 0.15, 0.25, 0.40, 0.60 and 0.80, on validation.
+7. **Logic-only check:** run `counting.py` on the **ground-truth boxes** of each test image instead of the model's predictions, then compare with `test_counts.csv`.
+   - Any error that remains here comes from the linking rule, not the detector.
+   - Report two count MAEs side by side: rule on ground-truth boxes, and rule on predictions. The gap between them is the detector's share of the error.
+
+Outputs: `reports/metrics_*.json`, `reports/*.png`, `reports/error_gallery/`, `reports/error_gallery.csv`.
 
 ## 9. Deployment (`app/`)
 
@@ -170,6 +187,10 @@ Extend the L4 pattern. Keep these function names:
 **Tests** (`tests/test_service.py`, pytest):
 - nothing sent, a text file, an empty file, a huge image, an empty scene (expects 200 with zeros), a normal image
 - reply schema: every key is present
+- The report §4.2 table has three rows. Fill each one from these tests and keep a screenshot of the reply for each:
+  - **A valid image:** a normal crossing photo with at least one cyclist.
+  - **A failure case:** an image it gets wrong, taken from the error gallery.
+  - **An input it should not handle:** a text file or an oversized image (returns 400), or a scooter rider (a known limit, counted as a pedestrian).
 
 **Timing** (`scripts/timing.py`):
 - Cold start in a fresh process (import, load the weights, answer once), with a breakdown.
@@ -190,11 +211,18 @@ c389-ca1/
 │   ├── train.py            # wraps model.train with the fixed config
 │   └── eval/               # metrics, count accuracy, error gallery, threshold sweep
 ├── app/app.py              # Gradio service
-├── scripts/timing.py
+├── scripts/
+│   ├── timing.py
+│   └── check_notebooks.py  # fails if any notebook has outputs or a hard-coded API key
 ├── tests/
 ├── reports/                # generated metrics/plots (no raw photos)
+├── docs/                   # team docs
 └── .gitignore              # datasets/, runs/, *.pt, images, .env
 ```
+
+- **Notebooks:** commit the lecturer notebooks and our adapted copies (the brief requires them in the repo).
+  - Clear every output first (Colab: *Edit → Clear all outputs*), because outputs can embed photos of people.
+  - `scripts/check_notebooks.py` exits 1 if any `.ipynb` has outputs, or has a string that looks like a Roboflow key passed to `Roboflow(api_key=...)`.
 
 - Everything must run on **Colab T4**, with `PROJECT_ROOT=/content/drive/MyDrive/C389`.
 - Scripts must also run locally, with `PROJECT_ROOT` taken from an environment variable.
@@ -204,11 +232,12 @@ c389-ca1/
 | By | Deliverable |
 |---|---|
 | Now | Repo skeleton, `config.py`, `verify_export.py`, `dedupe_check.py`. Wipe and retrain the baseline on clean v2 |
-| Lesson 4 | Gradio service with tests and timing (baseline 2-class) |
-| Lesson 5 | Labelling rules agreed. New photos shot. Session split. `test_v1` frozen |
+| Lesson 4 | Gradio service with tests and timing (baseline 2-class). L3/L4 notebooks pushed with outputs cleared, plus `check_notebooks.py` |
+| Lesson 5 | Labelling rules agreed. Section 14's open decisions settled and written down **before** capture (brief §5). New photos shot. Session split. `test_v1` frozen |
 | Lesson 6 | `twist_3cls` trained. `counting.py` with linking. Service shows the new counts |
-| Lesson 7 | Full evaluation, error gallery, threshold sweep. Backup demo screen recording |
-| Lesson 8 | Live demo (baseline first, then twist). Report submitted |
+| Lesson 7 | Full evaluation, error gallery with detection/logic tags, logic-only check, threshold sweep. Backup demo screen recording. Demo rehearsed, with every member able to explain every part |
+| Lesson 8 | Live demo (baseline first, then twist). Report submitted on SA3.0 by 23:59 with the repo link on page 1, and the lecturer added as a repo collaborator so the link opens |
+| End of module | Delete every photo, dataset, run and weight file on Drive and local devices, and the Roboflow project (brief §6). Confirm in the team chat |
 
 ## 12. Acceptance criteria
 
@@ -219,14 +248,17 @@ c389-ca1/
 - [ ] Count MAE and the pedestrian-vs-cyclist confusion table are produced from `test_counts.csv`
 - [ ] Service: all failure tests pass, an empty scene returns 200 with zeros, every count key is present
 - [ ] Cold and warm timings are recorded
+- [ ] Every error gallery entry is tagged detection or logic, and the logic-only count MAE is reported
+- [ ] Notebooks are in the repo, and `check_notebooks.py` passes
 - [ ] No API key, raw photos or weights in git history
+- [ ] The lecturer can open the repo link
 
 ## 13. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Too few bicycle boxes | High | Shoot cyclists first. Add COCO bicycles to training only |
-| Data leakage from burst shots | High | Session split + `dedupe_check.py` in CI |
+| Data leakage from burst shots | High | Session split, plus `dedupe_check.py` before every training run |
 | Unlabelled people in old data | Medium | Fix them from `REVIEW_LIST.csv` before training `twist_3cls` |
 | Linking errors when a walker overlaps a bike | Medium | Lower-body plus x-centre rule. Shoot this case on purpose. Report it in the error gallery |
 | Share link dies during the demo | Medium | Relaunch script ready. Backup screen recording |
@@ -236,3 +268,22 @@ c389-ca1/
 1. Someone pushing a bike: pedestrian (default) or cyclist?
 2. People facing the camera or facing away: a third class `person_other`, or drop them?
 3. Final confidence threshold, with its reason.
+
+## 15. Report evidence map
+
+The team writes the report. The code's job is to produce the evidence each section asks for.
+
+| Report section (weight) | Evidence | Produced by |
+|---|---|---|
+| §1.1–1.2 Twist and term definitions (10%) | Section 2 scope decision, section 7.2 linking rule, section 14 decisions | This PRD, plus team decisions |
+| §1.3 Technique options | New class vs tracking: tracking is out of scope because counts are per image | Team |
+| §2.1 Pipeline diagram (15%) | capture → Roboflow → `verify_export` / `dedupe_check` → train → detect → `counting.py` link → JSON + annotated image, with the twist parts marked | Team draws it |
+| §2.2 Data added | Image and box counts per class and split | `verify_export.py --json`, `split_log.csv` |
+| §2.3 Problems and decisions | The L3 dataset leak (section 5.1), the bicycles-only scope cut (section 2), Stretch → Fit re-export (section 6) | This PRD, git history |
+| §3.1 Test description (15%) | `test_v1` frozen before training, split by session, hand-counted | `split_log.csv`, `test_counts.csv` |
+| §3.2 Results | Per-class metrics, comparison table, count MAE, pedestrian-vs-cyclist confusion table | Section 8, items 1–4 and 7 |
+| §3.3 Failures | Worst images, each tagged detection or logic | `reports/error_gallery/`, `error_gallery.csv` |
+| §3.4 Limits | Test set size, locations and lighting not covered, scooters counted as pedestrians | `verify_export` counts, section 2 |
+| §4.1 Service (10%) | Reply format, screenshot of a real answer | Section 7.3, `app/app.py` |
+| §4.2 Tests | Valid / failure / should-not-handle rows | `tests/test_service.py`, `scripts/timing.py` |
+| §5 Contributions | Who built what | Git history: everyone commits under their own account |
