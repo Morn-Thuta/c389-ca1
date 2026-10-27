@@ -47,6 +47,20 @@ pip install -r requirements.txt
 export PROJECT_ROOT=/path/to/C389
 ```
 
+## Data checks (run before every training run)
+
+Run from the repo root, pointing at the downloaded Roboflow export (the folder with `data.yaml`):
+
+```bash
+python -m src.data.verify_export $PROJECT_ROOT/runs/L3/dataset --expect 2
+python -m src.data.dedupe_check $PROJECT_ROOT/runs/L3/dataset
+```
+
+- `verify_export` checks class order, counts per split/class, empty labels, small boxes and bad IDs. `--strict` also fails on warnings.
+- `dedupe_check` fails if any near-duplicate images sit in different splits.
+
+Tests: `python -m pytest -q`
+
 ## Workflow
 
 - Branch off `main` for each task (`feat/verify-export`, `feat/counting`, ...), then open a PR.
