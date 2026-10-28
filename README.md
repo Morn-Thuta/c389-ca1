@@ -61,6 +61,18 @@ python -m src.data.dedupe_check $PROJECT_ROOT/runs/L3/dataset
 
 Tests: `python -m pytest -q`
 
+## Running the app (Gradio)
+
+```bash
+python -m app.app --share
+```
+
+- **Weights:** defaults to `$PROJECT_ROOT/artifacts/L3/best.pt`, the baseline saved by the L3 notebook. Override it with `--weights` or `MODEL_WEIGHTS`. Our Drive folder is `C389_2`, so on Colab set `PROJECT_ROOT=/content/drive/MyDrive/C389_2`.
+- **Bicycles:** until `twist_3cls` is trained, they come from the stock `yolo26n.pt`, which downloads automatically. Once the weights include a `bicycle` class, that helper model is skipped. `--bike-weights none` turns it off.
+- The reply keeps the L4 shape, with the counts from PRD §7.3. Every request logs one line with status, latency and counts.
+
+Code: `src/counting.py` (linking and counts), `src/detector.py` (model wrapper), `app/service.py` (validate, count, reply, annotate) and `app/app.py` (the page).
+
 ## Workflow
 
 - Branch off `main` for each task (`feat/verify-export`, `feat/counting`, ...), then open a PR.
