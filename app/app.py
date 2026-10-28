@@ -30,7 +30,7 @@ def build_demo():
             gr.Slider(0.05, 0.95, value=CONF_THRESHOLD, step=0.05, label="Confidence threshold"),
         ],
         outputs=[
-            gr.Image(label="Detections (blue = pedestrian, orange = cyclist, green = bicycle)"),
+            gr.Image(label="Detections (red = moving left, blue = moving right, thick box + yellow line = cyclist, green = bicycle)"),
             gr.JSON(label="Reply"),
         ],
         title="People Counting Assistant: pedestrians and cyclists",

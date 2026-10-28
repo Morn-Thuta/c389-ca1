@@ -125,10 +125,11 @@ def _log_request(status, counts, started):
              status, (time.time() - started) * 1000, counts)
 
 
-# Colours: pedestrians blue, cyclists orange, bicycles green, rider-bike links yellow.
+# Box colour = direction (same red/blue as the L4 page). Cyclists get a thicker box
+# and a yellow line to their bike; bicycles are green.
 COLOURS = {
-    "pedestrian": (46, 112, 196),
-    "cyclist": (230, 126, 34),
+    "left": (214, 69, 65),
+    "right": (46, 112, 196),
     "bicycle": (39, 174, 96),
     "link": (241, 196, 15),
 }
@@ -136,32 +137,40 @@ ARROWS = {"left": "<-", "right": "->"}
 
 
 def annotate(image, detections):
-    """Draw boxes by role, and a line from each cyclist to their bike."""
+    """Colour each person by direction, mark cyclists, and link riders to bikes."""
     marked = image.copy()
     draw = ImageDraw.Draw(marked)
     width = max(2, round(max(image.size) / 300))
     try:
-        font = ImageFont.load_default(size=max(12, round(max(image.size) / 50)))
+        font = ImageFont.load_default(size=max(12, round(max(image.size) / 45)))
     except TypeError:  # Pillow < 10.1
         font = ImageFont.load_default()
 
     by_id = {d["id"]: d for d in detections}
     for det in detections:
         x1, y1, x2, y2 = det["box"]
+        box_width = width
         if det["class_name"] == "bicycle":
             colour = COLOURS["bicycle"]
-            label = "bicycle %.2f" % det["confidence"]
+            label = "bike %.2f" % det["confidence"]
         else:
-            colour = COLOURS[det["role"]]
             direction = det["class_name"].split("_")[1]
-            label = "%s %s %.2f" % (det["role"], ARROWS[direction], det["confidence"])
+            colour = COLOURS[direction]
+            role = "cyclist" if det["role"] == "cyclist" else "walk"
+            label = "%s %s %.2f" % (ARROWS[direction], role, det["confidence"])
             if det.get("linked_bicycle") is not None:
+                box_width = width * 2
                 bx1, by1, bx2, by2 = by_id[det["linked_bicycle"]]["box"]
                 draw.line([((x1 + x2) / 2, (y1 + y2) / 2), ((bx1 + bx2) / 2, (by1 + by2) / 2)],
                           fill=COLOURS["link"], width=width)
-        draw.rectangle([x1, y1, x2, y2], outline=colour, width=width)
-        draw.text((x1 + 3, max(0, y1 - font.size - 4) if hasattr(font, "size") else y1),
-                  label, fill=colour, font=font)
+        draw.rectangle([x1, y1, x2, y2], outline=colour, width=box_width)
+
+        # Label on a filled tab above the box, so it reads on any background.
+        left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
+        tab_h = bottom - top + 4
+        ty = y1 - tab_h if y1 - tab_h >= 0 else y1
+        draw.rectangle([x1, ty, x1 + right - left + 6, ty + tab_h], fill=colour)
+        draw.text((x1 + 3, ty + 2 - top), label, fill=(255, 255, 255), font=font)
     return marked
 
 
