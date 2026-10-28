@@ -71,6 +71,16 @@ python -m src.data.prelabel ORIGINAL_EXPORT_DIR --out OUTSIDE_REPO_DIR --directi
 - **Output:** a 3-class YOLO dataset to upload to Roboflow, plus `prelabel_review.csv`, which lists what was added per image (busiest first, with `direction_unknown` flags).
 - **Every image must still be checked by a person.**
 - **Use the original photos, not the masked export.** Masked people are greyed out and can't be found.
+- **Existing labels are read by class name**, so Roboflow's alphabetical order (bicycle = 0) is converted automatically.
+- **`--split-log path/to/v2_cleaned/split_log.csv`** re-applies the v2 cleaning to the original v1 export. It moves images to the cleaned split and drops the 10 duplicates.
+
+## After every Roboflow export: fix the class order
+
+Roboflow lists classes alphabetically, which puts `bicycle` at id 0. Rewrite the export to `person_left=0, person_right=1, bicycle=2` before checking or training:
+
+```bash
+python -m src.data.remap_classes EXPORT_DIR --out FIXED_DIR
+```
 
 Tests: `python -m pytest -q`
 

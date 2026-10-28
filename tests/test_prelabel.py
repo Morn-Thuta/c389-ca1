@@ -84,7 +84,7 @@ def test_run_writes_dataset_and_review_csv(tmp_path):
     (src / "train" / "labels" / "train_0.txt").write_text("1 0.175 0.433 0.25 0.733\n")
 
     out = tmp_path / "out"
-    rows, totals = prelabel.run(src, out, FakeLabeller())
+    rows, totals, _ = prelabel.run(src, out, FakeLabeller())
 
     assert yaml.safe_load((out / "data.yaml").read_text())["names"] == ["person_left", "person_right", "bicycle"]
     train_labels = (out / "train" / "labels" / "train_0.txt").read_text().splitlines()
@@ -105,3 +105,56 @@ def test_refuses_output_inside_repo(tmp_path):
     repo = prelabel.Path(prelabel.__file__).resolve().parents[2]
     with pytest.raises(SystemExit):
         prelabel.main([str(tmp_path), "--out", str(repo / "tmp_out"), "--direction-weights", "x.pt"])
+
+
+# --- alphabetical Roboflow exports and the v2 split log ---
+
+def make_alphabetical_export(root):
+    """A Roboflow-style export: classes alphabetical, so bicycle = 0."""
+    (root / "train" / "images").mkdir(parents=True)
+    (root / "train" / "labels").mkdir(parents=True)
+    (root / "data.yaml").write_text(yaml.safe_dump({"nc": 3, "names": ["bicycle", "person_left", "person_right"]}))
+    for name in ("9_jpeg.rf.aa.jpg", "1000396141_jpg.rf.bb.jpg"):
+        Image.new("RGB", (200, 150)).save(root / "train" / "images" / name)
+    # one person_right (their id 2) and one bicycle (their id 0)
+    (root / "train" / "labels" / "9_jpeg.rf.aa.txt").write_text(
+        "2 0.175 0.433 0.25 0.733\n0 0.8 0.8 0.2 0.2\n")
+
+
+class NoProposals:
+    def propose(self, image):
+        return []
+
+
+def test_image_key_matches_reuploads_but_keeps_different_photos_apart():
+    from src.data.prelabel import image_key
+    assert image_key("9_jpeg.rf.ab12.jpg") == image_key("9_jpeg_jpg.rf.cd34.jpg") == "9_jpeg"
+    assert image_key("2_jpg.rf.x.jpg") != image_key("2_jpeg.rf.y.jpg")
+    assert image_key("photo_4_2026-10-20_12-32-34_jpg.rf.z.jpg") == "photo_4_2026-10-20_12-32-34_jpg"
+
+
+def test_existing_labels_are_remapped_by_name(tmp_path):
+    src, out = tmp_path / "in", tmp_path / "out"
+    make_alphabetical_export(src)
+    prelabel.run(src, out, NoProposals())
+    lines = (out / "train" / "labels" / "9_jpeg.rf.aa.txt").read_text().splitlines()
+    assert [ln.split()[0] for ln in lines] == [str(PERSON_RIGHT), str(BICYCLE)]
+
+
+def test_split_log_moves_images_and_drops_unlisted(tmp_path):
+    src, out = tmp_path / "in", tmp_path / "out"
+    make_alphabetical_export(src)
+    log = tmp_path / "split_log.csv"
+    log.write_text("file,new_split,old_split,cluster\n9_jpeg_jpg.rf.zz.jpg,test,train,0\n")
+    rows, _, skipped = prelabel.run(src, out, NoProposals(), prelabel.read_split_log(log))
+    assert skipped == ["1000396141_jpg.rf.bb.jpg"]
+    assert [r["split"] for r in rows] == ["test"]
+    assert (out / "test" / "images" / "9_jpeg.rf.aa.jpg").is_file()
+    assert not (out / "train").exists()
+
+
+def test_unknown_input_class_is_refused(tmp_path):
+    import pytest
+    (tmp_path / "data.yaml").write_text(yaml.safe_dump({"names": ["person_left", "person_other"]}))
+    with pytest.raises(ValueError):
+        prelabel.input_mapping(tmp_path)

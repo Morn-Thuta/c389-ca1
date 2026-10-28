@@ -13,12 +13,21 @@ Output is a YOLO dataset in the 3-class order (person_left, person_right, bicycl
 that can be dropped into Roboflow's upload page, plus prelabel_review.csv listing
 what was added to each image so reviewers can start with the busiest ones.
 
+Existing labels are read by class *name* from the input's data.yaml, so a Roboflow
+export in alphabetical order (bicycle = 0) is converted to our order first.
+
+--split-log applies the v2 cleaning to an original export: images listed in
+split_log.csv go to their `new_split`, and images not listed (the removed
+duplicates) are skipped. File names are matched without Roboflow's ".rf.<hash>"
+suffix and extension tokens, so "9_jpeg" matches "9_jpeg_jpg".
+
 **Every image must still be checked by a person.** Use the original photos, not a
 masked export: blurred people cannot be found.
 
 Usage:
     python -m src.data.prelabel DATASET_DIR --out OUT_DIR --direction-weights best.pt
     python -m src.data.prelabel IMAGES_DIR  --out OUT_DIR --direction-weights best.pt
+    python -m src.data.prelabel V1_EXPORT --split-log v2_cleaned/split_log.csv --out OUT_DIR --direction-weights best.pt
 """
 
 import argparse
@@ -32,6 +41,7 @@ import yaml
 from PIL import Image
 
 from src.config import IMAGE_EXTS, SPLITS, TWIST_CLASSES
+from src.data.remap_classes import class_mapping, load_names
 
 PERSON_LEFT, PERSON_RIGHT, BICYCLE = 0, 1, 2
 
@@ -78,8 +88,11 @@ def match_direction(person_box, direction_dets):
 
 # --- YOLO label files: "cls cx cy w h", normalised ---
 
-def read_labels(path, width, height):
-    """Return [(class_id, [x1, y1, x2, y2])] in pixels; [] if the file is missing."""
+def read_labels(path, width, height, mapping=None):
+    """Return [(class_id, [x1, y1, x2, y2])] in pixels; [] if the file is missing.
+
+    mapping converts the file's class ids to ours ({their_id: our_id}).
+    """
     labels = []
     if not path.is_file():
         return labels
@@ -88,6 +101,8 @@ def read_labels(path, width, height):
         if len(parts) != 5:
             continue
         c, cx, cy, w, h = int(parts[0]), *map(float, parts[1:])
+        if mapping is not None:
+            c = mapping[c]
         labels.append((c, [(cx - w / 2) * width, (cy - h / 2) * height,
                            (cx + w / 2) * width, (cy + h / 2) * height]))
     return labels
@@ -194,26 +209,71 @@ def find_splits(input_dir):
     return [("images", input_dir, input_dir.parent / "labels")]
 
 
-def run(input_dir, out_dir, labeller):
+EXT_TOKENS = {"jpg", "jpeg", "png", "bmp", "webp", "heic"}
+
+
+def image_key(filename):
+    """Name without Roboflow's ".rf.<hash>" suffix and any extension it appended.
+
+    Each Roboflow re-upload appends "_jpg": "9_jpeg.rf.ab12.jpg" and
+    "9_jpeg_jpg.rf.cd34.jpg" both give "9_jpeg". The original extension token is
+    kept, so "2_jpg" and "2_jpeg" (two different photos) stay apart.
+    """
+    stem = Path(filename).name.split(".rf.")[0]
+    if "." in stem:
+        stem = stem.rsplit(".", 1)[0]
+    parts = stem.split("_")
+    while len(parts) > 2 and parts[-1].lower() in EXT_TOKENS and parts[-2].lower() in EXT_TOKENS:
+        parts.pop()
+    return "_".join(parts)
+
+
+def read_split_log(path):
+    """{image_key: new_split} from the v2 cleaning's split_log.csv."""
+    with open(path, newline="", encoding="utf-8") as f:
+        return {image_key(r["file"]): r["new_split"] for r in csv.DictReader(f)}
+
+
+def input_mapping(input_dir):
+    """Class-id mapping for the input's labels, or None if it has no data.yaml."""
+    if not (Path(input_dir) / "data.yaml").is_file():
+        return None
+    return class_mapping(load_names(input_dir))
+
+
+def run(input_dir, out_dir, labeller, split_log=None):
+    """Pre-label every image. split_log ({key: split}) re-splits and drops unlisted images.
+
+    Returns (rows, totals, skipped) where skipped lists images left out by split_log.
+    """
     out_dir = Path(out_dir)
-    rows = []
+    mapping = input_mapping(input_dir)
+    rows, skipped = [], []
     totals = Counter()
     for split, images_dir, labels_dir in find_splits(input_dir):
-        (out_dir / split / "images").mkdir(parents=True, exist_ok=True)
-        (out_dir / split / "labels").mkdir(parents=True, exist_ok=True)
         for image_path in sorted(p for p in images_dir.iterdir() if p.suffix.lower() in IMAGE_EXTS):
+            out_split = split
+            if split_log is not None:
+                out_split = split_log.get(image_key(image_path.name))
+                if out_split is None:
+                    skipped.append(image_path.name)
+                    continue
+            (out_dir / out_split / "images").mkdir(parents=True, exist_ok=True)
+            (out_dir / out_split / "labels").mkdir(parents=True, exist_ok=True)
+
             with Image.open(image_path) as img:
                 image = img.convert("RGB")
-            existing = read_labels(labels_dir / (image_path.stem + ".txt"), image.width, image.height)
+            existing = read_labels(labels_dir / (image_path.stem + ".txt"),
+                                   image.width, image.height, mapping)
             labels, added = merge(existing, labeller.propose(image))
 
-            shutil.copy2(image_path, out_dir / split / "images" / image_path.name)
-            write_labels(out_dir / split / "labels" / (image_path.stem + ".txt"),
+            shutil.copy2(image_path, out_dir / out_split / "images" / image_path.name)
+            write_labels(out_dir / out_split / "labels" / (image_path.stem + ".txt"),
                          labels, image.width, image.height)
 
             sources = Counter(s for _, _, s in added)
             row = {
-                "image": image_path.name, "split": split,
+                "image": image_path.name, "split": out_split,
                 "existing": len(existing),
                 "added_person_left": sum(1 for c, _, _ in added if c == PERSON_LEFT),
                 "added_person_right": sum(1 for c, _, _ in added if c == PERSON_RIGHT),
@@ -224,15 +284,17 @@ def run(input_dir, out_dir, labeller):
             rows.append(row)
             totals.update({k: v for k, v in row.items() if isinstance(v, int)})
 
+    out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / "data.yaml", "w", encoding="utf-8") as f:
-        yaml.safe_dump({"nc": len(TWIST_CLASSES), "names": list(TWIST_CLASSES)}, f, sort_keys=False)
+        yaml.safe_dump({"train": "train/images", "val": "valid/images", "test": "test/images",
+                        "nc": len(TWIST_CLASSES), "names": list(TWIST_CLASSES)}, f, sort_keys=False)
 
     rows.sort(key=lambda r: -(r["added_person_left"] + r["added_person_right"] + r["added_bicycle"]))
     with open(out_dir / "prelabel_review.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]) if rows else ["image"])
         writer.writeheader()
         writer.writerows(rows)
-    return rows, totals
+    return rows, totals, skipped
 
 
 def main(argv=None):
@@ -241,6 +303,7 @@ def main(argv=None):
     parser.add_argument("--out", required=True, help="output folder (keep it outside the repo)")
     parser.add_argument("--direction-weights", required=True, help="baseline best.pt (person_left/person_right)")
     parser.add_argument("--stock-weights", default="yolo26n.pt", help="COCO model for boxes (default: %(default)s)")
+    parser.add_argument("--split-log", help="split_log.csv from the v2 cleaning: re-split, and drop unlisted images")
     args = parser.parse_args(argv)
 
     out = Path(args.out).resolve()
@@ -249,8 +312,21 @@ def main(argv=None):
     if Path(args.input).resolve() == out:
         parser.error("--out must be a different folder from the input")
 
-    rows, totals = run(args.input, out, Prelabeller(args.direction_weights, args.stock_weights))
-    print(f"images: {len(rows)}  existing labels kept: {totals['existing']}")
+    try:
+        mapping = input_mapping(args.input)
+    except ValueError as e:
+        parser.error(str(e))
+    if mapping is not None and any(k != v for k, v in mapping.items()):
+        names = load_names(args.input)
+        print("input classes remapped: " + ", ".join(f"{names[i]} {i} -> {j}" for i, j in mapping.items()))
+    split_log = read_split_log(args.split_log) if args.split_log else None
+
+    rows, totals, skipped = run(args.input, out, Prelabeller(args.direction_weights, args.stock_weights), split_log)
+    if skipped:
+        print(f"skipped {len(skipped)} images not in the split log: {', '.join(skipped)}")
+    by_split = Counter(r["split"] for r in rows)
+    print(f"images: {len(rows)} ({', '.join(f'{s} {n}' for s, n in sorted(by_split.items()))})  "
+          f"existing labels kept: {totals['existing']}")
     print(f"added: person_left {totals['added_person_left']}, person_right {totals['added_person_right']}, "
           f"bicycle {totals['added_bicycle']}")
     print(f"direction from crop: {totals['direction_from_crop']}, "
