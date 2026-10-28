@@ -59,6 +59,19 @@ python -m src.data.dedupe_check $PROJECT_ROOT/runs/L3/dataset
 - `verify_export` checks class order, counts per split/class, empty labels, small boxes and bad IDs. `--strict` also fails on warnings.
 - `dedupe_check` fails if any near-duplicate images sit in different splits.
 
+## Pre-labelling (label every person and bike faster)
+
+```bash
+python -m src.data.prelabel ORIGINAL_EXPORT_DIR --out OUTSIDE_REPO_DIR --direction-weights best.pt
+```
+
+- **Boxes:** the stock `yolo26n.pt` draws a box for every person and bicycle.
+- **Direction:** our baseline sets each person's left or right.
+- **Existing human labels are kept.** Only missing people and bikes are added.
+- **Output:** a 3-class YOLO dataset to upload to Roboflow, plus `prelabel_review.csv`, which lists what was added per image (busiest first, with `direction_unknown` flags).
+- **Every image must still be checked by a person.**
+- **Use the original photos, not the masked export.** Masked people are greyed out and can't be found.
+
 Tests: `python -m pytest -q`
 
 ## Running the app (Gradio)
