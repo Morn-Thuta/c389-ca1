@@ -82,6 +82,19 @@ Roboflow lists classes alphabetically, which puts `bicycle` at id 0. Rewrite the
 python -m src.data.remap_classes EXPORT_DIR --out FIXED_DIR
 ```
 
+## Then put the splits back by session
+
+Generating a version in Roboflow can re-split images at random, which mixes one session's near-identical shots across train, valid and test. Copy the fixed export into session-based splits:
+
+```bash
+python -m src.data.resplit FIXED_DIR --out RESPLIT_DIR --split-log path/to/v2_cleaned/split_log.csv --session 2026-10-29=train
+```
+
+- Images in the v2 `split_log.csv` keep their v2 split.
+- Every other image needs a `--session DATE=SPLIT` for its capture date. If one is missing, the script lists the images and writes nothing.
+- `resplit_log.csv` in the output records each image's old and new split.
+- Then run `verify_export` and `dedupe_check` on `RESPLIT_DIR`.
+
 Tests: `python -m pytest -q`
 
 ## Running the app (Gradio)
