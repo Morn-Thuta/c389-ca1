@@ -84,18 +84,22 @@ Roboflow lists classes alphabetically, which puts `bicycle` at id 0. Rewrite the
 python -m src.data.remap_classes EXPORT_DIR --out FIXED_DIR
 ```
 
-## Then put the splits back by session
+## Then split 70/20/10 without leaking burst shots
 
-Generating a version in Roboflow can re-split images at random, which mixes one session's near-identical shots across train, valid and test. Copy the fixed export into session-based splits:
+Generating a version in Roboflow can re-split images at random, which mixes near-identical burst shots across train, valid and test. Copy the fixed export into a clean 70/20/10 split:
 
 ```bash
-python -m src.data.resplit FIXED_DIR --out RESPLIT_DIR --split-log path/to/v2_cleaned/split_log.csv --session 2026-10-29=train
+python -m src.data.resplit FIXED_DIR --out RESPLIT_DIR --ratio 70/20/10
 ```
 
-- Images in the v2 `split_log.csv` keep their v2 split.
-- Every other image needs a `--session DATE=SPLIT` for its capture date. If one is missing, the script lists the images and writes nothing.
-- `resplit_log.csv` in the output records each image's old and new split.
+- Near-identical photos (the same distance `dedupe_check` uses) form a **burst group**, and a group always stays in one split.
+- Groups are shared out at 70/20/10 **within each session**, so every location and day appears in every split.
+- Photos with bikes are shared out first, so bikes also land 70/20/10 and valid and test always have cyclists.
+- `--seed` changes the shuffle; the same seed always gives the same split.
+- `resplit_log.csv` in the output records each image's old split, new split and burst group.
 - Then run `verify_export` and `dedupe_check` on `RESPLIT_DIR`.
+
+To fix splits by hand instead, use `--split-log path/to/split_log.csv` and/or `--session DATE=SPLIT`.
 
 Tests: `python -m pytest -q`
 
