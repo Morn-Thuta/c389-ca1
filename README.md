@@ -65,6 +65,8 @@ python -m src.data.dedupe_check $PROJECT_ROOT/runs/L3/dataset
 python -m src.data.prelabel ORIGINAL_EXPORT_DIR --out OUTSIDE_REPO_DIR --direction-weights best.pt
 ```
 
+For large phone photos (e.g. 2560x1920) add `--imgsz 1280`: the stock model then finds far more small, far-away bikes and people.
+
 - **Boxes:** the stock `yolo26n.pt` draws a box for every person and bicycle.
 - **Direction:** our baseline sets each person's left or right.
 - **Existing human labels are kept.** Only missing people and bikes are added.

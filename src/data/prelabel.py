@@ -133,9 +133,10 @@ def boxes_of(result, wanted):
 
 
 class Prelabeller:
-    def __init__(self, direction_weights, stock_weights="yolo26n.pt"):
+    def __init__(self, direction_weights, stock_weights="yolo26n.pt", stock_imgsz=640):
         from ultralytics import YOLO
         self.stock = YOLO(stock_weights)
+        self.stock_imgsz = stock_imgsz  # larger finds small, far-away people and bikes
         self.direction = YOLO(direction_weights)
         names = [self.direction.names[k] for k in sorted(self.direction.names)]
         if names[:2] != TWIST_CLASSES[:2]:
@@ -157,7 +158,7 @@ class Prelabeller:
 
         source is "match", "crop" or "direction_unknown" for people, "stock" for bikes.
         """
-        stock = boxes_of(self.stock.predict(image, conf=DET_CONF, verbose=False)[0], {"person", "bicycle"})
+        stock = boxes_of(self.stock.predict(image, conf=DET_CONF, imgsz=self.stock_imgsz, verbose=False)[0], {"person", "bicycle"})
         direction_dets = [(TWIST_CLASSES.index(n), c, b) for n, c, b in boxes_of(
             self.direction.predict(image, conf=0.01, verbose=False)[0], TWIST_CLASSES[:2])]
 
@@ -303,6 +304,8 @@ def main(argv=None):
     parser.add_argument("--out", required=True, help="output folder (keep it outside the repo)")
     parser.add_argument("--direction-weights", required=True, help="baseline best.pt (person_left/person_right)")
     parser.add_argument("--stock-weights", default="yolo26n.pt", help="COCO model for boxes (default: %(default)s)")
+    parser.add_argument("--imgsz", type=int, default=640,
+                        help="stock model input size; 1280 finds more small boxes in large photos (default: %(default)s)")
     parser.add_argument("--split-log", help="split_log.csv from the v2 cleaning: re-split, and drop unlisted images")
     args = parser.parse_args(argv)
 
@@ -321,7 +324,7 @@ def main(argv=None):
         print("input classes remapped: " + ", ".join(f"{names[i]} {i} -> {j}" for i, j in mapping.items()))
     split_log = read_split_log(args.split_log) if args.split_log else None
 
-    rows, totals, skipped = run(args.input, out, Prelabeller(args.direction_weights, args.stock_weights), split_log)
+    rows, totals, skipped = run(args.input, out, Prelabeller(args.direction_weights, args.stock_weights, args.imgsz), split_log)
     if skipped:
         print(f"skipped {len(skipped)} images not in the split log: {', '.join(skipped)}")
     by_split = Counter(r["split"] for r in rows)
