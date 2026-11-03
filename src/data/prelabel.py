@@ -6,9 +6,9 @@
     to the baseline box that overlaps it most. If none overlaps enough, the person
     is cropped and the baseline is run again on the crop. If that also fails, the
     box is written as *_left and flagged "direction_unknown".
-  - A person riding a bike (src/linking.py) becomes one wheeled_* box around rider
-    and bike, in the rider's direction. Bikes nobody rides (parked, pushed) are not
-    labelled.
+  - A person with a bike, riding or walking it (src/linking.py), becomes one
+    wheeled_* box around both, in their direction. Bikes with nobody at them are
+    not labelled.
   - Existing (human) labels are kept as they are. A proposed box that overlaps an
     existing label is dropped, so only the missing people and riders are added.
 

@@ -103,10 +103,10 @@ Detections as `{class_name, confidence, box:[x1,y1,x2,y2]}`, the same shape as `
 
 ### 7.2 Labelling rule for wheeled crossers
 - A person **riding** a bike or scooter: one `wheeled_left` / `wheeled_right` box around rider and vehicle, in the direction they travel.
-- A person **walking** a bike: `person_left` / `person_right`. The vehicle gets no box.
-- A parked or unridden bike: no box.
+- A person **walking or carrying** a bike: also `wheeled_left` / `wheeled_right`, one box around person and bike (team decision, 3 Nov).
+- A parked bike with nobody at it: no box.
 
-Old exports labelled a cyclist as a person box plus a `bicycle` box. `src/data/to_wheeled.py` converts them with the linking rule in `src/linking.py` (the person rides the bike under their lower body: bottom 60% of the person box covers ≥ 25% of the bike, and the person's x-centre is within the bike's x-range ±10%). The same rule merges stock person and bicycle boxes when pre-labelling. Every converted image is checked by a person.
+Old exports labelled a cyclist as a person box plus a `bicycle` box. `src/data/to_wheeled.py` converts them with the linking rule in `src/linking.py`: the bike is the person's if it sits under their lower body (riding: bottom 60% of the person box covers ≥ 25% of the bike, x-centre within the bike's x-range ±10%) or beside it (walking: level with the lower body and within 25% of the person's width). The same rule merges stock person and bicycle boxes when pre-labelling. Every converted image is checked by a person.
 
 ### 7.3 Output
 ```json
@@ -217,11 +217,11 @@ c389-ca1/
 | Too few wheeled boxes | High | Shoot riders first, both directions. Outside data (≤30%, train only) with rider and vehicle in one box |
 | Data leakage from burst shots | High | Session split + `dedupe_check.py` in CI |
 | Unlabelled people in old data | Medium | Add them with the pre-labeller before training `twist_4cls` |
-| Walker pushing a bike confused with a rider | Medium | Label rule in §7.2. Shoot this case on purpose. Report it in the error gallery |
+| Pedestrian next to a parked bike taken as wheeled | Medium | Review every converted image. Report it in the error gallery |
 | Share link dies during the demo | Medium | Relaunch script ready. Backup screen recording |
 | Colab GPU unavailable | Low | Pair up. Keep `best.pt` on Drive |
 
 ## 14. Open decisions (team must confirm)
-1. Someone pushing a bike: `person_*` (default, §7.2) or `wheeled_*`? Confirm with the lecturer.
+1. ~~Someone pushing a bike~~: decided 3 Nov, walking or carrying a bike is `wheeled_*` (§7.2). Tell the lecturer.
 2. People facing the camera or facing away: a third class `person_other`, or drop them?
 3. Final confidence threshold, with its reason.

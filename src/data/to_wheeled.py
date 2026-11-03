@@ -2,9 +2,10 @@
 
 Older versions labelled a cyclist as a person box plus a bicycle box. The twist
 classes (PRD §4) put a rider and their bike in one box with a direction:
-  - a person riding a bike (src/linking.py)  -> one wheeled_left / wheeled_right
-    box around both, in the person's direction
-  - a bike nobody rides (parked, pushed)      -> removed
+  - a person with a bike, riding or walking it (src/linking.py)
+                                              -> one wheeled_left / wheeled_right
+                                                 box around both, in their direction
+  - a bike with nobody at it (parked)         -> removed
   - everyone else                             -> stays person_left / person_right
 Classes are read by *name*, so Roboflow's alphabetical order is handled. The
 output is in our class order, ready for resplit and verify_export.

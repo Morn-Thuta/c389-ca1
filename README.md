@@ -9,7 +9,7 @@ Counts people moving **left** vs **right** at a pedestrian crossing from a singl
 
 - `fliplr=0.0` everywhere. No flip augmentation in Roboflow.
 - Class order: `person_left=0`, `person_right=1`, `wheeled_left=2`, `wheeled_right=3` (the lecturer's Twist 2 classes).
-- A rider and their bike or scooter share **one** `wheeled_*` box, in the direction they travel. Someone walking a bike is `person_*`. Parked bikes get no box.
+- A person **with** a bike or scooter (riding, walking or carrying it) shares **one** `wheeled_*` box with it, in the direction they travel. Parked bikes with nobody at them get no box.
 - `ultralytics==8.4.120` (pinned).
 - **Never** commit the Roboflow API key. Use Colab Secrets (`ROBOFLOW_API_KEY`) or `getpass`.
 - **Never** commit photos, datasets, runs or `*.pt` weights. They stay on the module Drive / Roboflow.
@@ -68,7 +68,7 @@ python -m src.data.prelabel ORIGINAL_EXPORT_DIR --out OUTSIDE_REPO_DIR --directi
 
 For large phone photos (e.g. 2560x1920) add `--imgsz 1280`: the stock model then finds far more small, far-away riders and people.
 
-- **Boxes:** the stock `yolo26n.pt` draws a box for every person and bicycle. A person riding a bike becomes one `wheeled_*` box around both; bikes nobody rides are dropped.
+- **Boxes:** the stock `yolo26n.pt` draws a box for every person and bicycle. A person with a bike becomes one `wheeled_*` box around both; bikes with nobody at them are dropped.
 - **Direction:** our baseline sets each person's left or right.
 - **Existing human labels are kept.** Only missing people and riders are added.
 - **Output:** a 4-class YOLO dataset to upload to Roboflow, plus `prelabel_review.csv`, which lists what was added per image (busiest first, with `direction_unknown` flags).
@@ -93,8 +93,8 @@ Versions labelled before the switch have a person box plus a bicycle box for eac
 python -m src.data.to_wheeled EXPORT_DIR --out WHEELED_DIR
 ```
 
-- A person riding a bike becomes one `wheeled_*` box around both, in the person's direction (rule in `src/linking.py`).
-- A bike nobody rides (parked, pushed) is removed. Everyone else stays `person_*`.
+- A person with a bike (under them or beside their legs) becomes one `wheeled_*` box around both, in the person's direction (rule in `src/linking.py`).
+- A bike with nobody at it is removed. Everyone else stays `person_*`.
 - `to_wheeled_review.csv` lists every image where a rider was merged or a bike removed. **Check those in Roboflow**: the rule was written for model detections, so it can get a hand-drawn box wrong.
 
 ## Then split 70/20/10 without leaking burst shots

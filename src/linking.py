@@ -1,21 +1,34 @@
-"""Decide which person rides which bike, and merge the pair into one wheeled box.
+"""Decide which person is with which bike, and merge the pair into one wheeled box.
 
-The model never sees separate bikes: a rider and their vehicle are labelled as
-one wheeled_left / wheeled_right box. This rule is used where a person box and
-a bike box arrive separately: converting old exports (src/data/to_wheeled.py)
-and pre-labelling with the stock COCO model (src/data/prelabel.py).
+The model never sees separate bikes: a person and their vehicle are labelled as
+one wheeled_left / wheeled_right box. Team rule: riding, walking or carrying the
+bike all count. This rule is used where a person box and a bike box arrive
+separately: converting old exports (src/data/to_wheeled.py) and pre-labelling
+with the stock COCO model (src/data/prelabel.py).
 
-A person rides a bike when the bike sits under their lower body:
-  - lower   = the bottom LINK_LOWER_FRACTION of the person's box
-  - overlap = area(lower ∩ bike) / area(bike)          must be >= LINK_MIN_OVERLAP
-  - x_ok    = the person's x-centre lies within the bike's x-range,
-              widened by LINK_X_EXPAND of the bike's width on each side
-Candidates are matched greedily, highest overlap first, so each bike links to at
-most one person and each person to at most one bike. Someone pushing a bike walks
-beside it, so the bike is not under them and they stay a pedestrian.
+A bike is a person's when either
+  under:  the bike sits under their lower body (riding)
+    - lower   = the bottom LINK_LOWER_FRACTION of the person's box
+    - overlap = area(lower ∩ bike) / area(bike)        must be >= LINK_MIN_OVERLAP
+    - x_ok    = the person's x-centre lies within the bike's x-range,
+                widened by LINK_X_EXPAND of the bike's width on each side
+  beside: the bike is level with their lower body and next to it (walking it)
+    - at least LINK_BESIDE_MIN_SPAN of the bike's height is level with `lower`
+    - the horizontal gap between the boxes is at most LINK_BESIDE_GAP of the
+      person's width (touching or overlapping is a gap of 0)
+"Under" scores its overlap; "beside" scores below LINK_MIN_OVERLAP, so a rider
+always wins a bike over someone standing next to it. Candidates are matched
+greedily, highest score first: each bike goes to at most one person and each
+person to at most one bike. A bike with nobody near it (parked) stays unlinked.
 """
 
-from src.config import LINK_LOWER_FRACTION, LINK_MIN_OVERLAP, LINK_X_EXPAND
+from src.config import (
+    LINK_BESIDE_GAP,
+    LINK_BESIDE_MIN_SPAN,
+    LINK_LOWER_FRACTION,
+    LINK_MIN_OVERLAP,
+    LINK_X_EXPAND,
+)
 
 
 def area(box):
@@ -39,18 +52,25 @@ def lower_body(box, fraction=LINK_LOWER_FRACTION):
 
 
 def link_score(person_box, bike_box):
-    """Return the overlap score if the bike can be this person's, else None."""
+    """Return a score if the bike can be this person's, else None (see module doc)."""
     bike_area = area(bike_box)
     if bike_area == 0:
         return None
-    overlap = area(intersection(lower_body(person_box), bike_box)) / bike_area
+    lower = lower_body(person_box)
+    overlap = area(intersection(lower, bike_box)) / bike_area
 
     centre_x = (person_box[0] + person_box[2]) / 2
     pad = (bike_box[2] - bike_box[0]) * LINK_X_EXPAND
     x_ok = bike_box[0] - pad <= centre_x <= bike_box[2] + pad
-
     if overlap >= LINK_MIN_OVERLAP and x_ok:
         return overlap
+
+    level = max(0.0, min(lower[3], bike_box[3]) - max(lower[1], bike_box[1]))
+    gap = max(0.0, max(person_box[0], bike_box[0]) - min(person_box[2], bike_box[2]))
+    max_gap = (person_box[2] - person_box[0]) * LINK_BESIDE_GAP
+    if level >= LINK_BESIDE_MIN_SPAN * (bike_box[3] - bike_box[1]) and gap <= max_gap:
+        closeness = 1 - gap / max_gap if max_gap > 0 else 1
+        return LINK_MIN_OVERLAP * 0.5 * (1 + closeness) * 0.99  # always below an "under" match
     return None
 
 

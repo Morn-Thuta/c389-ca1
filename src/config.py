@@ -42,6 +42,10 @@ CONF_THRESHOLD = 0.40  # default; must be justified by the validation threshold 
 LINK_LOWER_FRACTION = 0.60  # bottom 60% of the person box
 LINK_MIN_OVERLAP = 0.25     # area(lower ∩ bike) / area(bike)
 LINK_X_EXPAND = 0.10        # expand bike x-range by 10% of its width
+# Walking or carrying a bike also counts as wheeled (team rule): a bike beside the
+# person's lower body, within this share of the person's width, is theirs.
+LINK_BESIDE_GAP = 0.25
+LINK_BESIDE_MIN_SPAN = 0.50  # share of the bike's height level with the lower body
 
 # --- Data checks (PRD §5.4) ---
 MIN_BOX_HEIGHT_FRAC = 0.10  # flag boxes shorter than 10% of image height
