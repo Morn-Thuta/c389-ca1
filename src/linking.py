@@ -12,6 +12,8 @@ A bike is a person's when either
     - overlap = area(lower ∩ bike) / area(bike)        must be >= LINK_MIN_OVERLAP
     - x_ok    = the person's x-centre lies within the bike's x-range,
                 widened by LINK_X_EXPAND of the bike's width on each side
+    or, when the person box stops at the saddle: x_ok, the person starts above
+    the bike, and the bottom of the person box falls within the bike's height
   beside: the bike is level with their lower body and next to it (walking it)
     - at least LINK_BESIDE_MIN_SPAN of the bike's height is level with `lower`
     - the horizontal gap between the boxes is at most LINK_BESIDE_GAP of the
@@ -64,6 +66,11 @@ def link_score(person_box, bike_box):
     x_ok = bike_box[0] - pad <= centre_x <= bike_box[2] + pad
     if overlap >= LINK_MIN_OVERLAP and x_ok:
         return overlap
+    # Seated: the person's box stops at the saddle (legs drawn inside the bike box),
+    # so the overlap is small but their box ends within the bike's height.
+    seated = bike_box[1] <= person_box[3] <= bike_box[3] and person_box[1] < bike_box[1]
+    if seated and x_ok:
+        return LINK_MIN_OVERLAP
 
     level = max(0.0, min(lower[3], bike_box[3]) - max(lower[1], bike_box[1]))
     gap = max(0.0, max(person_box[0], bike_box[0]) - min(person_box[2], bike_box[2]))

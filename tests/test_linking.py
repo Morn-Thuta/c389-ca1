@@ -66,3 +66,11 @@ def test_two_riders_two_bikes():
 
 def test_union_box_holds_rider_and_bike():
     assert union_box(RIDER, BIKE_UNDER) == [80, 0, 220, 300]
+
+
+def test_rider_box_ending_at_the_saddle_links():
+    # Person box stops at the saddle; the bike box holds the legs and wheels.
+    rider_to_saddle = [262, 250, 290, 360]
+    bike = [215, 340, 327, 400]
+    assert link_score(rider_to_saddle, bike) is not None
+    assert list(link_people_to_bikes([rider_to_saddle], [bike])) == [0]
