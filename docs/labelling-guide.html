@@ -121,6 +121,33 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 .s-edge { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4; }
 .s-cross { stroke: var(--bad); stroke-width: 4; stroke-linecap: round; }
 @media (prefers-reduced-motion: no-preference) { .scene { transition: transform .15s ease; } .scene:hover { transform: translateY(-2px); } }
+@page { size: A4; margin: 14mm 12mm; }
+@media print {
+  :root { --bg: #ffffff; }
+  body { padding: 0; font-size: 10.5pt; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* grid sections don't split across pages in print, so stack plain blocks instead */
+  .wrap, section { display: block; max-width: none; }
+  section { margin-top: 22px; }
+  section > * + * { margin-top: 10px; }
+  header > * + * { margin-top: 8px; }
+  h1 { font-size: 2.2rem; }
+  h2 { font-size: 1.4rem; break-after: avoid; }
+  .classes { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .rules, .cols { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .scenes { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .scene .cap { padding: 7px 9px 9px; }
+  .cap p { font-size: 0.82rem; }
+  .chip, .rule, .scene, .list, tr { break-inside: avoid; }
+  .classes { break-inside: avoid; }
+  .rule svg { max-height: 95px; }
+  .rule { padding: 14px; gap: 8px; }
+  #examples { break-before: page; }
+  #reference { break-before: page; }
+  .scene:hover { transform: none; }
+  table { min-width: 0; }
+  .pipeline { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.78rem; overflow: visible; }
+  footer { margin-top: 20px; }
+}
 </style>
 
 <div class="wrap">
@@ -174,13 +201,13 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
     </div>
   </section>
 
-  <section aria-labelledby="ex-h">
+  <section id="examples" aria-labelledby="ex-h">
     <h2 id="ex-h">Examples</h2>
     <p>Dashed boxes show what to draw. A red cross marks a mistake to avoid.</p>
     <div class="scenes" id="scenes"></div>
   </section>
 
-  <section aria-labelledby="ref-h">
+  <section id="reference" aria-labelledby="ref-h">
     <h2 id="ref-h">Quick reference</h2>
     <div class="tablebox">
       <table>
