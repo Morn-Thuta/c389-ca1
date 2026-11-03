@@ -1,9 +1,9 @@
 """Put a YOLO export's class ids into our fixed order (PRD §4).
 
-Roboflow lists classes alphabetically, so a 3-class export comes out as
-['bicycle', 'person_left', 'person_right'] with bicycle = 0. Our notebooks and
-models need person_left = 0, person_right = 1, bicycle = 2. This rewrites every
-label file by class *name*, and writes a data.yaml in our order.
+Roboflow lists classes alphabetically. Our notebooks and models need
+person_left = 0, person_right = 1, wheeled_left = 2, wheeled_right = 3 (the
+lecturer notebooks read 0 and 1 by position). This rewrites every label file by
+class *name*, and writes a data.yaml in our order.
 
 Usage (run after every Roboflow export, before verify_export and training):
     python -m src.data.remap_classes EXPORT_DIR --out FIXED_DIR
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import yaml
 
-from src.config import CLASS_NAMES, SPLITS
+from src.config import CLASS_NAMES, LEGACY_BICYCLE, SPLITS
 
 
 def load_names(dataset_dir):
@@ -34,6 +34,9 @@ def class_mapping(names):
     Raises ValueError for a class we don't have, so a new class (for example a
     team-added person_other) is never silently mislabelled.
     """
+    if LEGACY_BICYCLE in names:
+        raise ValueError(f"this export still has a separate '{LEGACY_BICYCLE}' class; "
+                         "convert it with: python -m src.data.to_wheeled EXPORT_DIR --out NEW_DIR")
     unknown = [n for n in names if n not in CLASS_NAMES]
     if unknown:
         raise ValueError(f"classes {unknown} are not in {CLASS_NAMES}; add them to src/config.py first")

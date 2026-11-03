@@ -6,7 +6,7 @@ import yaml
 from PIL import Image
 
 from src.data import prelabel
-from src.data.prelabel import BICYCLE, PERSON_LEFT, PERSON_RIGHT, match_direction, merge
+from src.data.prelabel import PERSON_LEFT, PERSON_RIGHT, WHEELED_LEFT, WHEELED_RIGHT, match_direction, merge
 
 
 def test_existing_labels_are_kept_and_duplicates_dropped():
@@ -14,11 +14,11 @@ def test_existing_labels_are_kept_and_duplicates_dropped():
     proposals = [
         (PERSON_LEFT, [105, 98, 205, 405], "match"),   # same person, other class: dropped
         (PERSON_LEFT, [400, 100, 480, 380], "match"),  # new person: added
-        (BICYCLE, [380, 250, 520, 400], "stock"),      # new bike: added
+        (WHEELED_RIGHT, [600, 150, 740, 400], "match"),  # new rider: added
     ]
     labels, added = merge(existing, proposals)
     assert labels[0] == existing[0]                    # human label untouched
-    assert [c for c, _, _ in added] == [PERSON_LEFT, BICYCLE]
+    assert [c for c, _, _ in added] == [PERSON_LEFT, WHEELED_RIGHT]
     assert len(labels) == 3
 
 
@@ -28,15 +28,14 @@ def test_box_inside_existing_label_is_a_duplicate():
     assert added == []
 
 
-def test_rider_and_bike_are_both_kept():
-    rider = (PERSON_RIGHT, [100, 0, 200, 300], "match")
-    bike = (BICYCLE, [80, 150, 220, 300], "stock")
-    _, added = merge([], [rider, bike])
-    assert len(added) == 2
+def test_person_inside_existing_wheeled_box_is_a_duplicate():
+    existing = [(WHEELED_RIGHT, [80, 0, 220, 300])]
+    _, added = merge(existing, [(PERSON_RIGHT, [100, 0, 200, 300], "match")])
+    assert added == []
 
 
 def test_proposals_do_not_duplicate_each_other():
-    proposals = [(BICYCLE, [0, 0, 100, 100], "stock"), (BICYCLE, [2, 2, 101, 99], "stock")]
+    proposals = [(WHEELED_LEFT, [0, 0, 100, 100], "match"), (WHEELED_LEFT, [2, 2, 101, 99], "match")]
     _, added = merge([], proposals)
     assert len(added) == 1
 
@@ -57,10 +56,10 @@ def test_match_direction_none_when_nothing_overlaps():
 
 def test_label_file_round_trip(tmp_path):
     path = tmp_path / "a.txt"
-    labels = [(PERSON_LEFT, [10.0, 20.0, 110.0, 220.0]), (BICYCLE, [200.0, 100.0, 400.0, 300.0])]
+    labels = [(PERSON_LEFT, [10.0, 20.0, 110.0, 220.0]), (WHEELED_RIGHT, [200.0, 100.0, 400.0, 300.0])]
     prelabel.write_labels(path, labels, 640, 480)
     back = prelabel.read_labels(path, 640, 480)
-    assert [c for c, _ in back] == [PERSON_LEFT, BICYCLE]
+    assert [c for c, _ in back] == [PERSON_LEFT, WHEELED_RIGHT]
     for (_, a), (_, b) in zip(labels, back):
         assert all(abs(x - y) < 0.01 for x, y in zip(a, b))
 
@@ -70,7 +69,7 @@ class FakeLabeller:
         return [
             (PERSON_RIGHT, [10, 10, 60, 120], "match"),
             (PERSON_LEFT, [100, 10, 150, 120], "direction_unknown"),
-            (BICYCLE, [100, 60, 180, 120], "stock"),
+            (WHEELED_LEFT, [160, 10, 199, 120], "match"),
         ]
 
 
@@ -86,7 +85,7 @@ def test_run_writes_dataset_and_review_csv(tmp_path):
     out = tmp_path / "out"
     rows, totals, _ = prelabel.run(src, out, FakeLabeller())
 
-    assert yaml.safe_load((out / "data.yaml").read_text())["names"] == ["person_left", "person_right", "bicycle"]
+    assert yaml.safe_load((out / "data.yaml").read_text())["names"] == ["person_left", "person_right", "wheeled_left", "wheeled_right"]
     train_labels = (out / "train" / "labels" / "train_0.txt").read_text().splitlines()
     test_labels = (out / "test" / "labels" / "test_0.txt").read_text().splitlines()
     assert len(train_labels) == 3      # 1 human + 2 added (duplicate person skipped)
@@ -110,15 +109,15 @@ def test_refuses_output_inside_repo(tmp_path):
 # --- alphabetical Roboflow exports and the v2 split log ---
 
 def make_alphabetical_export(root):
-    """A Roboflow-style export: classes alphabetical, so bicycle = 0."""
+    """A Roboflow-style export: classes alphabetical, so person_left = 0, wheeled_right = 3."""
     (root / "train" / "images").mkdir(parents=True)
     (root / "train" / "labels").mkdir(parents=True)
-    (root / "data.yaml").write_text(yaml.safe_dump({"nc": 3, "names": ["bicycle", "person_left", "person_right"]}))
+    (root / "data.yaml").write_text(yaml.safe_dump({"nc": 3, "names": ["person_right", "wheeled_left", "person_left"]}))
     for name in ("9_jpeg.rf.aa.jpg", "1000396141_jpg.rf.bb.jpg"):
         Image.new("RGB", (200, 150)).save(root / "train" / "images" / name)
-    # one person_right (their id 2) and one bicycle (their id 0)
+    # one person_right (their id 0) and one wheeled_left (their id 1)
     (root / "train" / "labels" / "9_jpeg.rf.aa.txt").write_text(
-        "2 0.175 0.433 0.25 0.733\n0 0.8 0.8 0.2 0.2\n")
+        "0 0.175 0.433 0.25 0.733\n1 0.8 0.8 0.2 0.2\n")
 
 
 class NoProposals:
@@ -138,7 +137,7 @@ def test_existing_labels_are_remapped_by_name(tmp_path):
     make_alphabetical_export(src)
     prelabel.run(src, out, NoProposals())
     lines = (out / "train" / "labels" / "9_jpeg.rf.aa.txt").read_text().splitlines()
-    assert [ln.split()[0] for ln in lines] == [str(PERSON_RIGHT), str(BICYCLE)]
+    assert [ln.split()[0] for ln in lines] == [str(PERSON_RIGHT), str(WHEELED_LEFT)]
 
 
 def test_split_log_moves_images_and_drops_unlisted(tmp_path):

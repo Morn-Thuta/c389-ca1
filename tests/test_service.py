@@ -1,6 +1,6 @@
 """Service tests (PRD §9): bad inputs, empty scene, normal image, reply schema.
 
-A fake detector stands in for the YOLO models, so these run without weights or
+A fake detector stands in for the YOLO model, so these run without weights or
 real photos. The live check against best.pt is done by hand (see the PR).
 """
 
@@ -22,8 +22,7 @@ class FakeDetector:
 
 
 RIDER_SCENE = [
-    {"class_name": "person_right", "confidence": 0.91, "box": [100, 0, 200, 300]},
-    {"class_name": "bicycle", "confidence": 0.88, "box": [80, 180, 220, 300]},
+    {"class_name": "wheeled_right", "confidence": 0.88, "box": [80, 0, 220, 300]},
     {"class_name": "person_left", "confidence": 0.75, "box": [300, 0, 380, 300]},
 ]
 
@@ -74,9 +73,9 @@ def test_normal_image_counts_and_schema(files):
     reply, _ = service.build_reply(str(files["normal"]), 0.4, detector=FakeDetector(RIDER_SCENE))
     assert reply["status"] == 200
     assert list(reply["counts"]) == COUNT_KEYS
-    assert reply["counts"]["cyclist_right"] == 1
-    assert reply["counts"]["pedestrian_left"] == 1
-    assert reply["counts"]["bicycle_unridden"] == 0
+    assert reply["counts"]["wheeled_right"] == 1
+    assert reply["counts"]["person_left"] == 1
+    assert reply["counts"]["total_left"] == 1 and reply["counts"]["total_right"] == 1
     for key in ("status", "counts", "confidence_threshold", "model_version",
                 "model_mode", "image_size", "inference_seconds", "detections"):
         assert key in reply

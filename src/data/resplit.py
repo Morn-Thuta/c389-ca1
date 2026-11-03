@@ -7,8 +7,8 @@ into a new folder, choosing each image's split in one of two ways.
 --ratio 70/20/10 (the team rule):
   Images within DEDUPE_MAX_HAMMING of each other (by perceptual hash, chained)
   form one burst group, and a group always goes to one split. Within each
-  session, groups that contain a bicycle are shared out first so bikes land in
-  every split at the ratio, then the rest are shared out by image count. The
+  session, groups that contain a wheeled crosser are shared out first so riders
+  land in every split at the ratio, then the rest are shared out by image count. The
   same --seed always gives the same split.
 
 --split-log / --session (fixed assignments):
@@ -37,7 +37,7 @@ import imagehash
 import yaml
 from PIL import Image
 
-from src.config import DEDUPE_MAX_HAMMING, IMAGE_EXTS, SPLITS
+from src.config import DEDUPE_MAX_HAMMING, IMAGE_EXTS, LEGACY_BICYCLE, SPLITS, WHEELED_CLASSES
 from src.data.prelabel import image_key, read_split_log
 from src.data.remap_classes import load_names
 
@@ -145,20 +145,21 @@ def share_out(groups, weight, ratios, totals):
     return assigned
 
 
-def bikes_in(label_path, bicycle_id):
-    if bicycle_id is None or not label_path.is_file():
+def riders_in(label_path, rider_ids):
+    """Wheeled boxes (or, in an older export, bicycle boxes) in one label file."""
+    if not rider_ids or not label_path.is_file():
         return 0
     return sum(1 for ln in label_path.read_text(encoding="utf-8").splitlines()
-               if ln.split() and int(ln.split()[0]) == bicycle_id)
+               if ln.split() and int(ln.split()[0]) in rider_ids)
 
 
 def ratio_plan(src_dir, ratios, seed=0, max_distance=DEDUPE_MAX_HAMMING):
     """Rows like plan(), with burst groups shared out per session at `ratios`."""
     images = list_images(src_dir)
     names = load_names(src_dir)
-    bicycle_id = names.index("bicycle") if "bicycle" in names else None
+    rider_ids = {i for i, n in enumerate(names) if n in WHEELED_CLASSES or n == LEGACY_BICYCLE}
     keys = [image_key(p.name) for _, p in images]
-    bikes = [bikes_in(p.parent.parent / "labels" / (p.stem + ".txt"), bicycle_id) for _, p in images]
+    riders = [riders_in(p.parent.parent / "labels" / (p.stem + ".txt"), rider_ids) for _, p in images]
     hashes = []
     for _, p in images:
         with Image.open(p) as img:
@@ -175,11 +176,11 @@ def ratio_plan(src_dir, ratios, seed=0, max_distance=DEDUPE_MAX_HAMMING):
     for session in sorted(by_session):
         session_groups = by_session[session]
         rng.shuffle(session_groups)  # equal-weight groups are then ordered by seed, not by name
-        n_bikes = lambda g: sum(bikes[i] for i in g)
-        with_bikes = [g for g in session_groups if n_bikes(g)]
-        without = [g for g in session_groups if not n_bikes(g)]
-        assigned.update(share_out(with_bikes, n_bikes, ratios, dict.fromkeys(SPLITS, 0)))
-        placed = Counter(assigned[i] for g in with_bikes for i in g)
+        n_riders = lambda g: sum(riders[i] for i in g)
+        with_riders = [g for g in session_groups if n_riders(g)]
+        without = [g for g in session_groups if not n_riders(g)]
+        assigned.update(share_out(with_riders, n_riders, ratios, dict.fromkeys(SPLITS, 0)))
+        placed = Counter(assigned[i] for g in with_riders for i in g)
         assigned.update(share_out(without, len, ratios, {s: placed[s] for s in SPLITS}))
 
     group_of = {i: n for n, g in enumerate(groups) for i in g}

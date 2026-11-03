@@ -1,7 +1,7 @@
 """Sanity-check a Roboflow YOLO export before training (PRD §5.4.1).
 
 Checks:
-  - data.yaml class order matches config.CLASS_NAMES (2-class baseline or 3-class twist)
+  - data.yaml class order matches config.CLASS_NAMES (2-class baseline or 4-class twist)
   - image and box counts per split and per class
   - empty label files, images without a label file, labels without an image
   - boxes shorter than MIN_BOX_HEIGHT_FRAC of the image height
@@ -12,7 +12,7 @@ warning, which also exits 1 with --strict.
 
 Usage:
     python -m src.data.verify_export /content/drive/MyDrive/C389/runs/L3/dataset
-    python -m src.data.verify_export DATASET_DIR --expect 3 --json reports/verify_export.json
+    python -m src.data.verify_export DATASET_DIR --expect 4 --json reports/verify_export.json
 """
 
 import argparse
@@ -40,7 +40,7 @@ def check_class_order(names, expect=None):
     """Return an error string, or None if the order is valid."""
     if expect is not None and len(names) != expect:
         return f"expected {expect} classes, data.yaml has {len(names)}: {names}"
-    if len(names) not in (2, 3) or names != CLASS_NAMES[: len(names)]:
+    if len(names) not in (2, len(CLASS_NAMES)) or names != CLASS_NAMES[: len(names)]:
         return f"class order {names} does not match {CLASS_NAMES[:max(len(names), 2)]}"
     return None
 
@@ -164,7 +164,7 @@ def print_report(report, limit=10):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("dataset_dir", help="folder containing data.yaml and train/valid/test")
-    parser.add_argument("--expect", type=int, choices=(2, 3), help="require exactly this many classes")
+    parser.add_argument("--expect", type=int, choices=(2, 4), help="require exactly this many classes")
     parser.add_argument("--strict", action="store_true", help="exit 1 on warnings too")
     parser.add_argument("--json", help="also write the full report to this JSON file")
     parser.add_argument("--limit", type=int, default=10, help="max items listed per problem (default 10)")

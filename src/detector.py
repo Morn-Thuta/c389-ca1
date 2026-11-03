@@ -1,20 +1,18 @@
-"""Run the YOLO model(s) and return detections in the L3/L4 notebook shape.
+"""Run the YOLO model and return detections in the L3/L4 notebook shape.
 
-Two modes:
-  - one model whose classes include `bicycle` (the final `twist_3cls`)
-  - stop-gap until `twist_3cls` exists: the 2-class baseline for person_left /
-    person_right, plus a stock COCO model (`yolo26n.pt`) for `bicycle` only
+Works with either model the project trains:
+  - the 2-class baseline (person_left, person_right)
+  - the Twist 2 model (person_left, person_right, wheeled_left, wheeled_right)
 
 Either way the caller gets one list of {class_name, confidence, box} dicts, so
-src/counting.py and the app never need to know which mode is running.
+src/counting.py and the app never need to know which one is loaded.
 """
 
 from ultralytics import YOLO
 
-from src.config import PERSON_CLASSES
+from src.config import CLASS_NAMES, WHEELED_CLASSES
 
-BICYCLE = "bicycle"
-# Keep everything the models find; the confidence threshold is applied later in
+# Keep everything the model finds; the confidence threshold is applied later in
 # counting.py, so the slider in the app can move without re-running the model.
 RAW_CONF = 0.01
 
@@ -38,32 +36,19 @@ def to_detections(result, keep):
 
 
 class Detector:
-    def __init__(self, weights, bike_weights="yolo26n.pt"):
+    def __init__(self, weights):
         self.weights = str(weights)
         self.model = YOLO(self.weights)
         self.class_names = [self.model.names[k] for k in sorted(self.model.names)]
-
-        # A model that already knows bicycles needs no helper.
-        self.bike_weights = None
-        self.bike_model = None
-        self.bike_class_id = None
-        if BICYCLE not in self.class_names and bike_weights:
-            self.bike_weights = str(bike_weights)
-            self.bike_model = YOLO(self.bike_weights)
-            ids = [k for k, v in self.bike_model.names.items() if v == BICYCLE]
-            if not ids:
-                raise ValueError(f"{bike_weights} has no '{BICYCLE}' class")
-            self.bike_class_id = ids[0]
+        if self.class_names[:2] != CLASS_NAMES[:2]:
+            raise ValueError(f"{weights} classes {self.class_names} must start with {CLASS_NAMES[:2]}")
 
     @property
     def mode(self):
-        return "single model" if self.bike_model is None else "baseline + stock bicycle model"
+        if WHEELED_CLASSES <= set(self.class_names):
+            return "twist (people + wheeled)"
+        return "baseline (people only)"
 
     def __call__(self, image):
         result = self.model.predict(image, conf=RAW_CONF, verbose=False)[0]
-        detections = to_detections(result, PERSON_CLASSES | {BICYCLE})
-        if self.bike_model is not None:
-            result = self.bike_model.predict(
-                image, conf=RAW_CONF, classes=[self.bike_class_id], verbose=False)[0]
-            detections += to_detections(result, {BICYCLE})
-        return detections
+        return to_detections(result, set(CLASS_NAMES))

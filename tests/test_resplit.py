@@ -103,18 +103,18 @@ def test_share_out_hits_ratio():
     assert Counter(got.values()) == {"train": 7, "valid": 2, "test": 1}
 
 
-def test_ratio_keeps_copies_together_and_spreads_bikes(tmp_path):
+def test_ratio_keeps_copies_together_and_spreads_riders(tmp_path):
     src, out = tmp_path / "in", tmp_path / "out"
     src.mkdir()
-    (src / "data.yaml").write_text(yaml.safe_dump({"nc": 3, "names": ["person_left", "person_right", "bicycle"]}))
+    (src / "data.yaml").write_text(yaml.safe_dump({"nc": 4, "names": ["person_left", "person_right", "wheeled_left", "wheeled_right"]}))
     for split in ("train", "valid"):
         (src / split / "images").mkdir(parents=True)
         (src / split / "labels").mkdir(parents=True)
-    # 20 distinct photos, 10 with a bike, plus an exact copy of photo 0 in valid
+    # 20 distinct photos, 10 with a rider, plus an exact copy of photo 0 in valid
     for n in range(20):
         name = f"photo_{n}_2026-11-02_11-24-00_jpg.rf.x{n}"
         noise_image(src / "train" / "images" / f"{name}.jpg", n)
-        lines = "0 0.3 0.5 0.1 0.3\n" + ("2 0.6 0.6 0.2 0.2\n" if n % 2 == 0 else "")
+        lines = "0 0.3 0.5 0.1 0.3\n" + ("3 0.6 0.6 0.2 0.2\n" if n % 2 == 0 else "")
         (src / "train" / "labels" / f"{name}.txt").write_text(lines)
     noise_image(src / "valid" / "images" / "photo_99_2026-11-02_11-24-00_jpg.rf.copy.jpg", 0)
     (src / "valid" / "labels" / "photo_99_2026-11-02_11-24-00_jpg.rf.copy.txt").write_text("1 0.5 0.5 0.1 0.3\n")

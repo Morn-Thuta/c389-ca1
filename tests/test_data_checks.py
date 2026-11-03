@@ -40,17 +40,18 @@ def test_clean_dataset_passes(tmp_path):
     assert verify_export.main([str(tmp_path)]) == 0
 
 
-def test_three_class_order_passes(tmp_path):
-    make_dataset(tmp_path, names=("person_left", "person_right", "bicycle"),
-                 labels={"train": "2 0.5 0.5 0.3 0.3\n"})
-    report = verify_export.verify(tmp_path, expect=3)
+def test_four_class_order_passes(tmp_path):
+    make_dataset(tmp_path, names=("person_left", "person_right", "wheeled_left", "wheeled_right"),
+                 labels={"train": "3 0.5 0.5 0.3 0.3\n"})
+    report = verify_export.verify(tmp_path, expect=4)
     assert report["errors"] == []
-    assert report["splits"]["train"]["boxes"]["bicycle"] == 1
+    assert report["splits"]["train"]["boxes"]["wheeled_right"] == 1
 
 
 @pytest.mark.parametrize("names", [
     ("person_right", "person_left"),
-    ("bicycle", "person_left", "person_right"),
+    ("person_left", "person_right", "bicycle"),
+    ("person_left", "person_right", "wheeled_right", "wheeled_left"),
     ("person",),
 ])
 def test_wrong_class_order_fails(tmp_path, names):

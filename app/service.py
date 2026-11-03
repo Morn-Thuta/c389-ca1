@@ -2,8 +2,8 @@
 
 Extends the Lesson 4 notebook: same function names and reply shape
 (validate_image, count_people, build_reply, annotate, predict), with the
-counting step swapped for src/counting.py so the reply carries pedestrian and
-cyclist counts per direction.
+counting step swapped for src/counting.py so the reply counts people on foot
+and wheeled crossers (Twist 2) per direction.
 """
 
 import io
@@ -26,11 +26,11 @@ log = logging.getLogger("c389.service")
 DETECTOR = None
 
 
-def load_model(weights, bike_weights="yolo26n.pt"):
+def load_model(weights):
     """Load the detector once. Returns it, and keeps it for count_people()."""
     global DETECTOR
     from src.detector import Detector  # imported here so tests can run without ultralytics
-    DETECTOR = Detector(weights, bike_weights)
+    DETECTOR = Detector(weights)
     log.info("model loaded: %s (%s)", DETECTOR.weights, DETECTOR.mode)
     return DETECTOR
 
@@ -83,7 +83,7 @@ def validate_image(uploaded):
 
 
 def count_people(image, threshold, detector=None):
-    """Run the detector on one validated image, then link and count.
+    """Run the detector on one validated image, then count.
 
     Returns (counts, detections). Every count key is present, and an image with
     nobody in it is a valid result of zeros rather than an error.
@@ -125,19 +125,19 @@ def _log_request(status, counts, started):
              status, (time.time() - started) * 1000, counts)
 
 
-# Box colour = direction (same red/blue as the L4 page). Cyclists get a thicker box
-# and a yellow line to their bike; bicycles are green.
+# Box colour = class. People keep the L4 page's red (left) and blue (right); wheeled
+# crossers get orange (left) and purple (right) with a thicker box.
 COLOURS = {
-    "left": (214, 69, 65),
-    "right": (46, 112, 196),
-    "bicycle": (39, 174, 96),
-    "link": (241, 196, 15),
+    "person_left": (214, 69, 65),
+    "person_right": (46, 112, 196),
+    "wheeled_left": (230, 126, 34),
+    "wheeled_right": (142, 68, 173),
 }
 ARROWS = {"left": "<-", "right": "->"}
 
 
 def annotate(image, detections):
-    """Colour each person by direction, mark cyclists, and link riders to bikes."""
+    """Draw each detection in its class colour with a direction arrow and score."""
     marked = image.copy()
     draw = ImageDraw.Draw(marked)
     width = max(2, round(max(image.size) / 300))
@@ -146,23 +146,13 @@ def annotate(image, detections):
     except TypeError:  # Pillow < 10.1
         font = ImageFont.load_default()
 
-    by_id = {d["id"]: d for d in detections}
     for det in detections:
         x1, y1, x2, y2 = det["box"]
-        box_width = width
-        if det["class_name"] == "bicycle":
-            colour = COLOURS["bicycle"]
-            label = "bike %.2f" % det["confidence"]
-        else:
-            direction = det["class_name"].split("_")[1]
-            colour = COLOURS[direction]
-            role = "cyclist" if det["role"] == "cyclist" else "walk"
-            label = "%s %s %.2f" % (ARROWS[direction], role, det["confidence"])
-            if det.get("linked_bicycle") is not None:
-                box_width = width * 2
-                bx1, by1, bx2, by2 = by_id[det["linked_bicycle"]]["box"]
-                draw.line([((x1 + x2) / 2, (y1 + y2) / 2), ((bx1 + bx2) / 2, (by1 + by2) / 2)],
-                          fill=COLOURS["link"], width=width)
+        kind, direction = det["class_name"].rsplit("_", 1)
+        colour = COLOURS[det["class_name"]]
+        box_width = width * 2 if kind == "wheeled" else width
+        label = "%s %s %.2f" % (ARROWS[direction], "wheeled" if kind == "wheeled" else "walk",
+                                det["confidence"])
         draw.rectangle([x1, y1, x2, y2], outline=colour, width=box_width)
 
         # Label on a filled tab above the box, so it reads on any background.

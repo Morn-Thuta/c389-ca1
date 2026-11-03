@@ -1,4 +1,4 @@
-# PRD: People Counting Assistant + Twist 2 (Cyclists)
+# PRD: People Counting Assistant + Twist 2 (Micromobility crossers)
 
 C389 AI Solution Design & Implementation · CA1 · Team of 6
 Deadline: **Lesson 8** (live demo + CA1 report, same day)
@@ -15,15 +15,15 @@ Deadline: **Lesson 8** (live demo + CA1 report, same day)
 ## 2. Problem
 
 - **Base task:** count how many people at a pedestrian crossing are moving **left** vs **right**, from a **single still image** taken by a fixed camera.
-- **Twist 2 (bicycles only, confirmed by the teacher):** detect bicycles, and classify every crosser as **pedestrian** or **cyclist**, with direction.
+- **Twist 2 (micromobility crossers), with the lecturer's classes:** keep `person_left` / `person_right` and add `wheeled_left` / `wheeled_right`. A rider and their bike or scooter are **one** wheeled box, with the direction they travel.
 
-**Users:** campus or traffic planners, who use the counts to judge flow imbalance and how many cyclists use the crossing.
+**Users:** campus or traffic planners, who use the counts to judge flow imbalance and how many riders use the crossing.
 
 ## 3. Scope
 
 **In scope**
-- A YOLO26 detector with 3 classes: `person_left (0)`, `person_right (1)`, `bicycle (2)`
-- Per-image counting, plus logic that links each person to a bike
+- A YOLO26 detector with 4 classes: `person_left (0)`, `person_right (1)`, `wheeled_left (2)`, `wheeled_right (3)`
+- Per-image counting by class and direction (the classes are the answer, so no linking step at inference)
 - Evaluation: baseline vs twist model on the **same frozen test set**
 - A Gradio web service with a structured JSON reply
 - Tests for bad inputs, and cold/warm timing
@@ -39,7 +39,7 @@ Deadline: **Lesson 8** (live demo + CA1 report, same day)
 | Rule | Why |
 |---|---|
 | `fliplr=0.0` everywhere, and no flip augmentation in Roboflow | A flipped image reverses direction but keeps the old label |
-| Class order: `person_left`=0, `person_right`=1, `bicycle`=2 | Class IDs are positional, and the notebooks check the first two |
+| Class order: `person_left`=0, `person_right`=1, `wheeled_left`=2, `wheeled_right`=3 | Class IDs are positional, and the notebooks check the first two |
 | Pin `ultralytics==8.4.120` | Results must be comparable across teams |
 | Left/right = direction across the **image**, not the person's own left/right | Labelling convention |
 | Never put the Roboflow API key in code or notebooks. Use Colab Secrets `ROBOFLOW_API_KEY` or `getpass` | Notebooks go to the team repo |
@@ -55,8 +55,8 @@ Deadline: **Lesson 8** (live demo + CA1 report, same day)
 
 ### 5.2 New data being collected
 - About **120–150 pedestrian photos** from 3–4 new locations: groups, overlapping people, far-away people, varied light.
-- About **100 cyclist photos**: 150–200+ bicycle boxes, about 50/50 left/right, mostly mixed with walkers.
-- **Optional:** COCO `bicycle` images, as extra training data only, never in test. Every person in them must be relabelled left/right.
+- About **100 rider photos**: 150–200+ `wheeled_*` boxes, about 50/50 left/right, mostly mixed with walkers.
+- **Optional:** outside images (≤30% of the dataset, lecturer's limit) as extra training data only, never in valid or test. Each rider and vehicle become one `wheeled_*` box, and every person is labelled left/right.
 
 ### 5.3 Split policy
 - Split **by capture session** (location + time), so one session never spans two splits.
@@ -92,46 +92,35 @@ Deadline: **Lesson 8** (live demo + CA1 report, same day)
 | Batch | 16 |
 | fliplr | 0.0 |
 | seed | 0 |
-| Runs | `baseline_2cls` (person_left, person_right) and `twist_3cls` (+ bicycle) |
+| Runs | `baseline_2cls` (person_left, person_right) and `twist_4cls` (+ wheeled_left, wheeled_right) |
 
 Outputs go to `MyDrive/C389/runs/<run>/`. The best weights are copied to `MyDrive/C389/artifacts/<run>/best.pt`, together with a `metrics.json`.
 
-## 7. Counting and linking people to bikes (`src/counting.py`)
+## 7. Counting (`src/counting.py`)
 
 ### 7.1 Inputs
 Detections as `{class_name, confidence, box:[x1,y1,x2,y2]}`, the same shape as `to_detections()` in L3. Apply the confidence threshold first. The default is 0.40, and it must be justified with evidence.
 
-### 7.2 Linking rule (cyclist vs pedestrian)
-For each person P and bicycle B:
-- `lower` = the bottom 60% of P's box
-- `overlap = area(intersection(lower, B)) / area(B)`
-- `x_ok` = the horizontal centre of P lies within B's x-range, expanded by 10% of B's width
-- B is a candidate for P if `overlap ≥ 0.25` **and** `x_ok`
+### 7.2 Labelling rule for wheeled crossers
+- A person **riding** a bike or scooter: one `wheeled_left` / `wheeled_right` box around rider and vehicle, in the direction they travel.
+- A person **walking** a bike: `person_left` / `person_right`. The vehicle gets no box.
+- A parked or unridden bike: no box.
 
-Then match greedily, highest overlap first. **Each bike links to at most one person, and each person to at most one bike.**
-- A linked person is a **cyclist**. An unlinked person is a **pedestrian**.
-- Direction comes from the person's class.
-- A bike with no linked person is an **unridden bike**. It's counted but makes nobody a cyclist.
-
-All thresholds are constants at the top of the file. A small grid search on the **validation** set picks them, never the test set.
-
-**Open decision:** someone pushing a bike. Default is **pedestrian**, which the rule above already gives because the bike sits beside the person, not under them. The team must confirm this.
+Old exports labelled a cyclist as a person box plus a `bicycle` box. `src/data/to_wheeled.py` converts them with the linking rule in `src/linking.py` (the person rides the bike under their lower body: bottom 60% of the person box covers ≥ 25% of the bike, and the person's x-centre is within the bike's x-range ±10%). The same rule merges stock person and bicycle boxes when pre-labelling. Every converted image is checked by a person.
 
 ### 7.3 Output
 ```json
 {
   "status": 200,
-  "message": "ok",
-  "threshold": 0.40,
   "counts": {
-    "pedestrian_left": 2, "pedestrian_right": 1,
-    "cyclist_left": 0, "cyclist_right": 1,
-    "bicycle_total": 2, "bicycle_unridden": 1,
-    "person_left": 2, "person_right": 2
+    "person_left": 2, "person_right": 1,
+    "wheeled_left": 0, "wheeled_right": 1,
+    "total_left": 2, "total_right": 2
   },
+  "confidence_threshold": 0.40,
   "detections": [
-    {"class_name": "person_right", "confidence": 0.91, "box": [..], "role": "cyclist", "linked_bicycle": 3},
-    {"class_name": "bicycle", "confidence": 0.88, "box": [..], "id": 3}
+    {"class_name": "wheeled_right", "confidence": 0.88, "box": [..], "id": 0, "direction": "right"},
+    {"class_name": "person_left", "confidence": 0.91, "box": [..], "id": 1, "direction": "left"}
   ]
 }
 ```
@@ -142,12 +131,12 @@ Every count key is always present, even at 0. An empty scene returns `200` with 
 1. **Detector metrics** on the frozen `test_v1`, at the same threshold for every model:
    - precision, recall, mAP50 and mAP50-95 **per class**
    - confusion matrix
-2. **Comparison table:** old baseline (if reproducible) vs new `baseline_2cls` vs `twist_3cls`. Show that `person_left`/`person_right` did **not** get worse after adding `bicycle`.
+2. **Comparison table:** old baseline (if reproducible) vs new `baseline_2cls` vs `twist_4cls`. Show that `person_left`/`person_right` did **not** get worse after adding the wheeled classes.
 3. **Count accuracy:**
-   - The team hand-counts each test image into `test_counts.csv` (`image, pedestrian_left, pedestrian_right, cyclist_left, cyclist_right`).
+   - The team hand-counts each test image into `test_counts.csv` (`image, person_left, person_right, wheeled_left, wheeled_right`).
    - Report the mean absolute error per count and the % of images with an exact count.
-4. **Pedestrian vs cyclist classification:** a confusion table over matched ground-truth people.
-5. **Error gallery:** save the worst 10 images, with predictions and ground truth drawn on, sorted into missed person, wrong direction, wrong role, or false bike.
+4. **Person vs wheeled:** the confusion matrix rows for person ↔ wheeled mix-ups (a rider called a walker, or the reverse).
+5. **Error gallery:** save the worst 10 images, with predictions and ground truth drawn on, sorted into missed crosser, wrong direction, person/wheeled mix-up, or false detection.
 6. **Threshold sweep:** counts and F1 at 0.15, 0.25, 0.40, 0.60 and 0.80, on validation.
 
 Outputs: `reports/metrics_*.json`, `reports/*.png`, `reports/error_gallery/`.
@@ -163,7 +152,7 @@ Extend the L4 pattern. Keep these function names:
 - `predict(image, threshold)`: the Gradio entry point. It returns the annotated image and the JSON.
 - The model is loaded **once at startup**.
 - Gradio inputs: image upload, threshold slider (0.05–0.95).
-- Gradio outputs: annotated image (pedestrians in one colour, cyclists in another, bike–rider links drawn as lines) and the JSON reply.
+- Gradio outputs: annotated image (people red/blue by direction, wheeled crossers orange/purple with a thicker box) and the JSON reply.
 - `demo.launch(share=True)`. Close it with `demo.close()`.
 - A log line per request: time, status, counts, latency in ms.
 
@@ -206,17 +195,17 @@ c389-ca1/
 | Now | Repo skeleton, `config.py`, `verify_export.py`, `dedupe_check.py`. Wipe and retrain the baseline on clean v2 |
 | Lesson 4 | Gradio service with tests and timing (baseline 2-class) |
 | Lesson 5 | Labelling rules agreed. New photos shot. Session split. `test_v1` frozen |
-| Lesson 6 | `twist_3cls` trained. `counting.py` with linking. Service shows the new counts |
+| Lesson 6 | `twist_4cls` trained. Service shows the person and wheeled counts |
 | Lesson 7 | Full evaluation, error gallery, threshold sweep. Backup demo screen recording |
 | Lesson 8 | Live demo (baseline first, then twist). Report submitted |
 
 ## 12. Acceptance criteria
 
 - [ ] `verify_export.py` passes, and `dedupe_check.py` finds 0 cross-split near-duplicates
-- [ ] `bicycle` has at least 150 training boxes, and left/right are within a 60/40 split
-- [ ] Per-class test metrics are reported for all 3 classes on `test_v1`
-- [ ] `person_left`/`person_right` mAP50 on `test_v1` doesn't drop more than 0.03 after adding `bicycle`, or the drop is explained
-- [ ] Count MAE and the pedestrian-vs-cyclist confusion table are produced from `test_counts.csv`
+- [ ] `wheeled_left` + `wheeled_right` have at least 150 training boxes, within a 60/40 split
+- [ ] Per-class test metrics are reported for all 4 classes on `test_v1`
+- [ ] `person_left`/`person_right` mAP50 on `test_v1` doesn't drop more than 0.03 after adding the wheeled classes, or the drop is explained
+- [ ] Count MAE per class is produced from `test_counts.csv`
 - [ ] Service: all failure tests pass, an empty scene returns 200 with zeros, every count key is present
 - [ ] Cold and warm timings are recorded
 - [ ] No API key, raw photos or weights in git history
@@ -225,14 +214,14 @@ c389-ca1/
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Too few bicycle boxes | High | Shoot cyclists first. Add COCO bicycles to training only |
+| Too few wheeled boxes | High | Shoot riders first, both directions. Outside data (≤30%, train only) with rider and vehicle in one box |
 | Data leakage from burst shots | High | Session split + `dedupe_check.py` in CI |
-| Unlabelled people in old data | Medium | Fix them from `REVIEW_LIST.csv` before training `twist_3cls` |
-| Linking errors when a walker overlaps a bike | Medium | Lower-body plus x-centre rule. Shoot this case on purpose. Report it in the error gallery |
+| Unlabelled people in old data | Medium | Add them with the pre-labeller before training `twist_4cls` |
+| Walker pushing a bike confused with a rider | Medium | Label rule in §7.2. Shoot this case on purpose. Report it in the error gallery |
 | Share link dies during the demo | Medium | Relaunch script ready. Backup screen recording |
 | Colab GPU unavailable | Low | Pair up. Keep `best.pt` on Drive |
 
 ## 14. Open decisions (team must confirm)
-1. Someone pushing a bike: pedestrian (default) or cyclist?
+1. Someone pushing a bike: `person_*` (default, §7.2) or `wheeled_*`? Confirm with the lecturer.
 2. People facing the camera or facing away: a third class `person_other`, or drop them?
 3. Final confidence threshold, with its reason.

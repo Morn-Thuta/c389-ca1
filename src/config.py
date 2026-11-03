@@ -4,10 +4,15 @@ import os
 from pathlib import Path
 
 # --- Classes (positional: never reorder, the lecturer notebooks check 0 and 1) ---
-CLASS_NAMES = ["person_left", "person_right", "bicycle"]
+# Twist 2 (micromobility crossers): a rider and their bike or scooter share one
+# wheeled_* box, with the direction they are travelling.
+CLASS_NAMES = ["person_left", "person_right", "wheeled_left", "wheeled_right"]
 BASELINE_CLASSES = CLASS_NAMES[:2]
-TWIST_CLASSES = CLASS_NAMES[:3]
+TWIST_CLASSES = CLASS_NAMES
 PERSON_CLASSES = {"person_left", "person_right"}
+WHEELED_CLASSES = {"wheeled_left", "wheeled_right"}
+# Older exports labelled the bike on its own; src/data/to_wheeled.py converts them.
+LEGACY_BICYCLE = "bicycle"
 
 # --- Paths ---
 # Colab default; set PROJECT_ROOT to run locally.
@@ -27,12 +32,13 @@ TRAIN_CONFIG = {
     "seed": 0,
 }
 RUN_BASELINE = "baseline_2cls"
-RUN_TWIST = "twist_3cls"
+RUN_TWIST = "twist_4cls"
 
 # --- Inference ---
 CONF_THRESHOLD = 0.40  # default; must be justified by the validation threshold sweep
 
-# --- Person-bike linking (PRD §7.2); tune on validation only ---
+# --- Person-bike linking (src/linking.py): used to turn a rider + bike into one
+# wheeled box when converting old labels and when pre-labelling ---
 LINK_LOWER_FRACTION = 0.60  # bottom 60% of the person box
 LINK_MIN_OVERLAP = 0.25     # area(lower ∩ bike) / area(bike)
 LINK_X_EXPAND = 0.10        # expand bike x-range by 10% of its width

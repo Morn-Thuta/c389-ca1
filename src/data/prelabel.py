@@ -1,20 +1,25 @@
-"""Pre-draw labels for every person and bicycle, for humans to correct in Roboflow.
+"""Pre-draw labels for every person and wheeled crosser, for humans to correct in Roboflow.
 
   - Boxes come from a stock COCO model (yolo26n.pt): it finds people and bikes well,
     but cannot tell left from right.
   - Direction comes from our baseline (best.pt): each stock person box is matched
     to the baseline box that overlaps it most. If none overlaps enough, the person
     is cropped and the baseline is run again on the crop. If that also fails, the
-    box is written as person_left and flagged "direction_unknown".
+    box is written as *_left and flagged "direction_unknown".
+  - A person riding a bike (src/linking.py) becomes one wheeled_* box around rider
+    and bike, in the rider's direction. Bikes nobody rides (parked, pushed) are not
+    labelled.
   - Existing (human) labels are kept as they are. A proposed box that overlaps an
-    existing label is dropped, so only the missing people and bikes are added.
+    existing label is dropped, so only the missing people and riders are added.
 
-Output is a YOLO dataset in the 3-class order (person_left, person_right, bicycle)
-that can be dropped into Roboflow's upload page, plus prelabel_review.csv listing
-what was added to each image so reviewers can start with the busiest ones.
+Output is a YOLO dataset in our class order (person_left, person_right,
+wheeled_left, wheeled_right) that can be dropped into Roboflow's upload page, plus
+prelabel_review.csv listing what was added to each image so reviewers can start
+with the busiest ones.
 
 Existing labels are read by class *name* from the input's data.yaml, so a Roboflow
-export in alphabetical order (bicycle = 0) is converted to our order first.
+export in alphabetical order is converted to our order first. An export that still
+has a separate `bicycle` class is refused: run src/data/to_wheeled.py on it first.
 
 --split-log applies the v2 cleaning to an original export: images listed in
 split_log.csv go to their `new_split`, and images not listed (the removed
@@ -40,10 +45,12 @@ from pathlib import Path
 import yaml
 from PIL import Image
 
-from src.config import IMAGE_EXTS, SPLITS, TWIST_CLASSES
+from src.config import CLASS_NAMES, IMAGE_EXTS, SPLITS
 from src.data.remap_classes import class_mapping, load_names
+from src.linking import link_people_to_bikes, union_box
 
-PERSON_LEFT, PERSON_RIGHT, BICYCLE = 0, 1, 2
+PERSON_LEFT, PERSON_RIGHT, WHEELED_LEFT, WHEELED_RIGHT = 0, 1, 2, 3
+WHEELED_OF = {PERSON_LEFT: WHEELED_LEFT, PERSON_RIGHT: WHEELED_RIGHT}
 
 DET_CONF = 0.25          # stock model: minimum confidence for a proposed box
 DUPLICATE_IOU = 0.40     # proposal vs existing label: same object above this IoU
@@ -139,33 +146,34 @@ class Prelabeller:
         self.stock_imgsz = stock_imgsz  # larger finds small, far-away people and bikes
         self.direction = YOLO(direction_weights)
         names = [self.direction.names[k] for k in sorted(self.direction.names)]
-        if names[:2] != TWIST_CLASSES[:2]:
-            raise ValueError(f"{direction_weights} classes {names} do not start with {TWIST_CLASSES[:2]}")
+        if names[:2] != CLASS_NAMES[:2]:
+            raise ValueError(f"{direction_weights} classes {names} do not start with {CLASS_NAMES[:2]}")
 
     def direction_from_crop(self, image, box):
         x1, y1, x2, y2 = box
         pw, ph = (x2 - x1) * CROP_PAD, (y2 - y1) * CROP_PAD
         crop = image.crop((max(0, x1 - pw), max(0, y1 - ph),
                            min(image.width, x2 + pw), min(image.height, y2 + ph)))
-        dets = boxes_of(self.direction.predict(crop, conf=0.05, verbose=False)[0], TWIST_CLASSES[:2])
+        dets = boxes_of(self.direction.predict(crop, conf=0.05, verbose=False)[0], CLASS_NAMES[:2])
         if not dets:
             return None
         name, conf, _ = max(dets, key=lambda d: d[1])
-        return TWIST_CLASSES.index(name), conf
+        return CLASS_NAMES.index(name), conf
 
     def propose(self, image):
-        """Return [(class_id, box, source)] for every person and bicycle found.
+        """Return [(class_id, box, source)] for every person and rider found.
 
-        source is "match", "crop" or "direction_unknown" for people, "stock" for bikes.
+        source is "match", "crop" or "direction_unknown": how the direction was found.
         """
-        stock = boxes_of(self.stock.predict(image, conf=DET_CONF, imgsz=self.stock_imgsz, verbose=False)[0], {"person", "bicycle"})
-        direction_dets = [(TWIST_CLASSES.index(n), c, b) for n, c, b in boxes_of(
-            self.direction.predict(image, conf=0.01, verbose=False)[0], TWIST_CLASSES[:2])]
+        stock = boxes_of(self.stock.predict(image, conf=DET_CONF, imgsz=self.stock_imgsz, verbose=False)[0],
+                         {"person", "bicycle"})
+        direction_dets = [(CLASS_NAMES.index(n), c, b) for n, c, b in boxes_of(
+            self.direction.predict(image, conf=0.01, verbose=False)[0], CLASS_NAMES[:2])]
 
-        proposals = []
+        people, bikes = [], []
         for name, _, box in stock:
             if name == "bicycle":
-                proposals.append((BICYCLE, box, "stock"))
+                bikes.append(box)
                 continue
             found = match_direction(box, direction_dets)
             source = "match"
@@ -173,27 +181,30 @@ class Prelabeller:
                 found = self.direction_from_crop(image, box)
                 source = "crop"
             if found is None:
-                proposals.append((PERSON_LEFT, box, "direction_unknown"))
+                found, source = (PERSON_LEFT, None), "direction_unknown"
+            people.append((found[0], box, source))
+
+        links = link_people_to_bikes([b for _, b, _ in people], bikes)
+        proposals = []
+        for i, (class_id, box, source) in enumerate(people):
+            if i in links:
+                proposals.append((WHEELED_OF[class_id], union_box(box, bikes[links[i][0]]), source))
             else:
-                proposals.append((found[0], box, source))
+                proposals.append((class_id, box, source))
         return proposals
 
 
-def kind(class_id):
-    """People are compared with people, bikes with bikes: a rider overlaps their bike."""
-    return "bicycle" if class_id == BICYCLE else "person"
-
-
 def merge(existing, proposals):
-    """Keep every existing label; add proposals that don't duplicate one of the same kind.
+    """Keep every existing label; add proposals that don't duplicate one.
 
-    Returns (labels, added) where added is the list of proposals kept.
+    A rider sits inside their wheeled box, so a person proposal inside an existing
+    wheeled label counts as a duplicate too. Returns (labels, added) where added
+    is the list of proposals kept.
     """
     labels = list(existing)
     added = []
     for class_id, box, source in proposals:
-        same_kind = [b for c, b in labels if kind(c) == kind(class_id)]
-        if is_duplicate(box, same_kind):
+        if is_duplicate(box, [b for _, b in labels]):
             continue
         labels.append((class_id, box))
         added.append((class_id, box, source))
@@ -278,7 +289,8 @@ def run(input_dir, out_dir, labeller, split_log=None):
                 "existing": len(existing),
                 "added_person_left": sum(1 for c, _, _ in added if c == PERSON_LEFT),
                 "added_person_right": sum(1 for c, _, _ in added if c == PERSON_RIGHT),
-                "added_bicycle": sum(1 for c, _, _ in added if c == BICYCLE),
+                "added_wheeled_left": sum(1 for c, _, _ in added if c == WHEELED_LEFT),
+                "added_wheeled_right": sum(1 for c, _, _ in added if c == WHEELED_RIGHT),
                 "direction_from_crop": sources["crop"],
                 "direction_unknown": sources["direction_unknown"],
             }
@@ -288,9 +300,10 @@ def run(input_dir, out_dir, labeller, split_log=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / "data.yaml", "w", encoding="utf-8") as f:
         yaml.safe_dump({"train": "train/images", "val": "valid/images", "test": "test/images",
-                        "nc": len(TWIST_CLASSES), "names": list(TWIST_CLASSES)}, f, sort_keys=False)
+                        "nc": len(CLASS_NAMES), "names": list(CLASS_NAMES)}, f, sort_keys=False)
 
-    rows.sort(key=lambda r: -(r["added_person_left"] + r["added_person_right"] + r["added_bicycle"]))
+    added_keys = ["added_person_left", "added_person_right", "added_wheeled_left", "added_wheeled_right"]
+    rows.sort(key=lambda r: -sum(r[k] for k in added_keys))
     with open(out_dir / "prelabel_review.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]) if rows else ["image"])
         writer.writeheader()
@@ -331,9 +344,9 @@ def main(argv=None):
     print(f"images: {len(rows)} ({', '.join(f'{s} {n}' for s, n in sorted(by_split.items()))})  "
           f"existing labels kept: {totals['existing']}")
     print(f"added: person_left {totals['added_person_left']}, person_right {totals['added_person_right']}, "
-          f"bicycle {totals['added_bicycle']}")
+          f"wheeled_left {totals['added_wheeled_left']}, wheeled_right {totals['added_wheeled_right']}")
     print(f"direction from crop: {totals['direction_from_crop']}, "
-          f"unknown (written as person_left, check these): {totals['direction_unknown']}")
+          f"unknown (written as *_left, check these): {totals['direction_unknown']}")
     print(f"wrote {out} (data.yaml, prelabel_review.csv)")
     return 0
 
