@@ -157,3 +157,14 @@ def test_unknown_input_class_is_refused(tmp_path):
     (tmp_path / "data.yaml").write_text(yaml.safe_dump({"names": ["person_left", "person_other"]}))
     with pytest.raises(ValueError):
         prelabel.input_mapping(tmp_path)
+
+
+def test_plain_photo_folder_gives_flat_output(tmp_path):
+    photos, out = tmp_path / "photos", tmp_path / "out"
+    photos.mkdir()
+    Image.new("RGB", (200, 150)).save(photos / "a.jpg")
+    rows, _, _ = prelabel.run(photos, out, FakeLabeller())
+    assert (out / "images" / "a.jpg").is_file()
+    assert len((out / "labels" / "a.txt").read_text().splitlines()) == 3
+    assert not (out / "images" / "images").exists()
+    assert rows[0]["split"] == "-"

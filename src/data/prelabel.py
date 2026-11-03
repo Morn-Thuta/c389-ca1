@@ -43,7 +43,7 @@ from collections import Counter
 from pathlib import Path
 
 import yaml
-from PIL import Image
+from PIL import Image, ImageOps
 
 from src.config import CLASS_NAMES, IMAGE_EXTS, SPLITS
 from src.data.remap_classes import class_mapping, load_names
@@ -218,7 +218,8 @@ def find_splits(input_dir):
               for s in SPLITS if (input_dir / s / "images").is_dir()]
     if splits:
         return splits
-    return [("images", input_dir, input_dir.parent / "labels")]
+    # a plain folder of photos: output goes straight into OUT/images and OUT/labels
+    return [("", input_dir, input_dir.parent / "labels")]
 
 
 EXT_TOKENS = {"jpg", "jpeg", "png", "bmp", "webp", "heic"}
@@ -274,7 +275,8 @@ def run(input_dir, out_dir, labeller, split_log=None):
             (out_dir / out_split / "labels").mkdir(parents=True, exist_ok=True)
 
             with Image.open(image_path) as img:
-                image = img.convert("RGB")
+                # Roboflow auto-orients phone photos, so measure boxes on the upright image
+                image = ImageOps.exif_transpose(img).convert("RGB")
             existing = read_labels(labels_dir / (image_path.stem + ".txt"),
                                    image.width, image.height, mapping)
             labels, added = merge(existing, labeller.propose(image))
@@ -285,7 +287,7 @@ def run(input_dir, out_dir, labeller, split_log=None):
 
             sources = Counter(s for _, _, s in added)
             row = {
-                "image": image_path.name, "split": out_split,
+                "image": image_path.name, "split": out_split or "-",
                 "existing": len(existing),
                 "added_person_left": sum(1 for c, _, _ in added if c == PERSON_LEFT),
                 "added_person_right": sum(1 for c, _, _ in added if c == PERSON_RIGHT),
