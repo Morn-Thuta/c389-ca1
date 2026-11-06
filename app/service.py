@@ -13,7 +13,7 @@ import time
 
 from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
-from src.config import CONF_THRESHOLD
+from src.config import CONF_THRESHOLD, INPUT_STRETCH
 from src.counting import count_crossers
 
 SERVICE_VERSION = "2.0.0"
@@ -26,11 +26,15 @@ log = logging.getLogger("c389.service")
 DETECTOR = None
 
 
-def load_model(weights):
-    """Load the detector once. Returns it, and keeps it for count_people()."""
+def load_model(weights, stretch=INPUT_STRETCH):
+    """Load the detector once. Returns it, and keeps it for count_people().
+
+    stretch: square size photos are squashed to before inference (the training
+    export's "Stretch to" size), or None for weights trained on unstretched photos.
+    """
     global DETECTOR
     from src.detector import Detector  # imported here so tests can run without ultralytics
-    DETECTOR = Detector(weights)
+    DETECTOR = Detector(weights, stretch)
     log.info("model loaded: %s (%s)", DETECTOR.weights, DETECTOR.mode)
     return DETECTOR
 

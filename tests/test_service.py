@@ -100,3 +100,37 @@ def test_predict_on_refusal_returns_no_image(files, monkeypatch):
     marked, reply = service.predict(str(files["text"]), 0.4)
     assert marked is None
     assert reply["status"] == 415
+
+
+def test_stretched_input_boxes_map_back_to_the_photo():
+    """With stretch on, the model sees a 512x512 square; boxes come back in photo pixels."""
+    from src import detector as det_mod
+
+    class FakeBoxes:
+        def __init__(self):
+            import torch
+            self.cls = torch.tensor([3.0])
+            self.conf = torch.tensor([0.9])
+            self.xyxy = torch.tensor([[128.0, 256.0, 256.0, 512.0]])
+
+        def __len__(self):
+            return 1
+
+    class FakeModel:
+        seen = None
+
+        def predict(self, image, **kw):
+            FakeModel.seen = (image.size, kw.get("imgsz"))
+            r = type("R", (), {})()
+            r.boxes = FakeBoxes()
+            r.names = {0: "person_left", 1: "person_right", 2: "wheeled_left", 3: "wheeled_right"}
+            return [r]
+
+    d = det_mod.Detector.__new__(det_mod.Detector)
+    d.weights, d.stretch, d.model = "fake.pt", 512, FakeModel()
+    d.class_names = ["person_left", "person_right", "wheeled_left", "wheeled_right"]
+    out = d(Image.new("RGB", (4000, 3000)))
+    assert FakeModel.seen == ((512, 512), 512)
+    assert out[0]["class_name"] == "wheeled_right"
+    assert out[0]["box"] == [1000.0, 1500.0, 2000.0, 3000.0]  # x * 4000/512, y * 3000/512
+    assert "stretched to 512x512" in d.mode

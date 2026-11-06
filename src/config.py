@@ -36,6 +36,11 @@ RUN_TWIST = "twist_4cls"
 
 # --- Inference ---
 CONF_THRESHOLD = 0.40  # default; must be justified by the validation threshold sweep
+# Square size the photo is stretched to before the model sees it, matching
+# Roboflow's "Stretch to 512x512" export the current weights were trained on.
+# Set to None for weights trained on an export that keeps the photo's shape
+# ("Fit within"): the model then letterboxes as normal.
+INPUT_STRETCH = 512
 
 # --- Person-bike linking (src/linking.py): used to turn a rider + bike into one
 # wheeled box when converting old labels and when pre-labelling ---

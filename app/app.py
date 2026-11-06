@@ -17,7 +17,7 @@ import os
 import gradio as gr
 
 from app import service
-from src.config import ARTIFACTS_DIR, CONF_THRESHOLD
+from src.config import ARTIFACTS_DIR, CONF_THRESHOLD, INPUT_STRETCH
 
 DEFAULT_WEIGHTS = os.environ.get("MODEL_WEIGHTS", str(ARTIFACTS_DIR / "L3" / "best.pt"))
 
@@ -43,13 +43,16 @@ def build_demo():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--weights", default=DEFAULT_WEIGHTS, help="model weights (default: %(default)s)")
+    parser.add_argument("--stretch", type=int, default=INPUT_STRETCH,
+                        help="squash photos to this square size first, matching the training export "
+                             "(default: %(default)s; 0 for weights trained on unstretched photos)")
     parser.add_argument("--share", action="store_true", help="create a public gradio.live link")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     if not os.path.exists(args.weights):
         parser.error(f"weights not found: {args.weights} (set PROJECT_ROOT or MODEL_WEIGHTS, or pass --weights)")
-    service.load_model(args.weights)
+    service.load_model(args.weights, args.stretch or None)
 
     demo = build_demo()
     try:
