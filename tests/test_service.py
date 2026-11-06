@@ -127,10 +127,10 @@ def test_stretched_input_boxes_map_back_to_the_photo():
             return [r]
 
     d = det_mod.Detector.__new__(det_mod.Detector)
-    d.weights, d.stretch, d.model = "fake.pt", 512, FakeModel()
+    d.weights, d.stretch, d.imgsz, d.model = "fake.pt", 512, 640, FakeModel()
     d.class_names = ["person_left", "person_right", "wheeled_left", "wheeled_right"]
     out = d(Image.new("RGB", (4000, 3000)))
-    assert FakeModel.seen == ((512, 512), 512)
+    assert FakeModel.seen == ((512, 512), 640)
     assert out[0]["class_name"] == "wheeled_right"
     assert out[0]["box"] == [1000.0, 1500.0, 2000.0, 3000.0]  # x * 4000/512, y * 3000/512
     assert "stretched to 512x512" in d.mode

@@ -10,7 +10,7 @@ src/counting.py and the app never need to know which one is loaded.
 
 from ultralytics import YOLO
 
-from src.config import CLASS_NAMES, INPUT_STRETCH, WHEELED_CLASSES
+from src.config import CLASS_NAMES, INFER_IMGSZ, INPUT_STRETCH, WHEELED_CLASSES
 
 # Keep everything the model finds; the confidence threshold is applied later in
 # counting.py, so the slider in the app can move without re-running the model.
@@ -44,9 +44,10 @@ def scale_boxes(detections, sx, sy):
 
 
 class Detector:
-    def __init__(self, weights, stretch=INPUT_STRETCH):
+    def __init__(self, weights, stretch=INPUT_STRETCH, imgsz=INFER_IMGSZ):
         self.weights = str(weights)
         self.stretch = stretch
+        self.imgsz = imgsz
         self.model = YOLO(self.weights)
         self.class_names = [self.model.names[k] for k in sorted(self.model.names)]
         if self.class_names[:2] != CLASS_NAMES[:2]:
@@ -61,12 +62,13 @@ class Detector:
 
     def __call__(self, image):
         if not self.stretch:
-            result = self.model.predict(image, conf=RAW_CONF, verbose=False)[0]
+            result = self.model.predict(image, conf=RAW_CONF, imgsz=self.imgsz, verbose=False)[0]
             return to_detections(result, set(CLASS_NAMES))
         # Squash the photo to the square the training export used, so people and
-        # bikes have the proportions the model learned, then map boxes back.
+        # bikes have the proportions the model learned, run at the training size,
+        # then map boxes back onto the photo.
         width, height = image.size
         square = image.resize((self.stretch, self.stretch))
-        result = self.model.predict(square, conf=RAW_CONF, imgsz=self.stretch, verbose=False)[0]
+        result = self.model.predict(square, conf=RAW_CONF, imgsz=self.imgsz, verbose=False)[0]
         return scale_boxes(to_detections(result, set(CLASS_NAMES)),
                            width / self.stretch, height / self.stretch)

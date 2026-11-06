@@ -41,6 +41,12 @@ CONF_THRESHOLD = 0.40  # default; must be justified by the validation threshold 
 # Set to None for weights trained on an export that keeps the photo's shape
 # ("Fit within"): the model then letterboxes as normal.
 INPUT_STRETCH = 512
+# Size the model runs at: the training imgsz (the 512 squares were enlarged to
+# 640 in training, and validation mAP50 is 0.876 at 640 against 0.859 at 512).
+INFER_IMGSZ = TRAIN_CONFIG["imgsz"]
+# Two boxes of the same kind overlapping this much are one crosser (YOLO26 is
+# NMS-free and can repeat a box); the more confident one is kept.
+DUPLICATE_IOU = 0.70
 
 # --- Person-bike linking (src/linking.py): used to turn a rider + bike into one
 # wheeled box when converting old labels and when pre-labelling ---
