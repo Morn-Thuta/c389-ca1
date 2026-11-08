@@ -264,7 +264,7 @@ def clear_area(photo, threshold):
 
 
 def build_demo():
-    with gr.Blocks(title="People Counting Assistant") as demo:
+    with gr.Blocks(title="People Counting Assistant", analytics_enabled=False) as demo:
         gr.HTML(header_html())
         corners = gr.State([])
         last_reply = gr.State(None)
