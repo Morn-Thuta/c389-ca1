@@ -92,40 +92,45 @@ CSS = """
 footer { display: none !important; }
 
 .pc-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-             padding: 18px 2px 14px; border-bottom: 1px solid var(--block-border-color); margin-bottom: 4px; }
-.pc-header h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.015em; color: var(--body-text-color); }
-.pc-header p { margin: 4px 0 0; font-size: 14px; color: var(--body-text-color-subdued); max-width: 640px; }
+             padding: 10px 2px 10px; border-bottom: 1px solid var(--block-border-color); margin-bottom: 4px; }
+.pc-header h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.015em; color: var(--body-text-color); }
+.pc-header p { margin: 2px 0 0; font-size: 13.5px; color: var(--body-text-color-subdued); max-width: 640px; }
 .pc-chip { font-family: var(--font-mono); font-size: 12px; color: var(--body-text-color-subdued); border: 1px solid var(--block-border-color);
            border-radius: 999px; padding: 4px 10px; background: var(--block-background-fill); white-space: nowrap; }
 .pc-chip i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #22a06b; margin-right: 6px; }
 
 .pc-section { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
-              color: var(--body-text-color-subdued); margin: 2px 2px 0; }
+              color: var(--body-text-color-subdued); margin: 0 2px; }
+.pc-gap { margin-top: 6px; }
+.pc-col { gap: 10px !important; }
+.pc-area-row { align-items: center !important; gap: 8px !important; }
 
-.pc-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pc-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .pc-stats > .pc-stat { background: var(--block-background-fill); border: 1px solid var(--block-border-color);
-           border-radius: 10px; padding: 14px 16px 12px; min-width: 0; }
-.pc-stat > .k { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 13px;
+           border-radius: 10px; padding: 9px 14px; min-width: 0;
+           display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'k n' 'd n';
+           align-items: center; column-gap: 10px; }
+.pc-stat > .k { grid-area: k; display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 13px;
                 font-weight: 500; color: var(--body-text-color); }
 .pc-stat > .k > i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
-.pc-stat > .n { font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em;
-                font-variant-numeric: tabular-nums; color: var(--body-text-color); margin-top: 6px; }
-.pc-stat > .d { font-size: 12.5px; color: var(--body-text-color-subdued); }
-.pc-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px;
+.pc-stat > .n { grid-area: n; font-size: 30px; line-height: 1; font-weight: 600; letter-spacing: -0.02em;
+                font-variant-numeric: tabular-nums; color: var(--body-text-color); }
+.pc-stat > .d { grid-area: d; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--body-text-color-subdued); }
+.pc-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 8px;
              background: var(--block-background-fill); border: 1px solid var(--block-border-color); border-radius: 10px; }
-.pc-totals > div { padding: 10px 14px; min-width: 0; }
+.pc-totals > div { padding: 7px 12px; min-width: 0; }
 .pc-totals > div + div { border-left: 1px solid var(--block-border-color); }
 .pc-totals .k { font-family: var(--font-mono); font-size: 12px; color: var(--body-text-color-subdued);
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pc-totals .n { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--body-text-color); }
-.pc-note { margin: 10px 2px 0; font-size: 13px; color: var(--body-text-color-subdued); line-height: 1.5; }
+.pc-totals .n { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--body-text-color); }
+.pc-note { margin: 8px 2px 0; font-size: 13px; color: var(--body-text-color-subdued); line-height: 1.5; }
 .pc-error { margin-top: 10px; border: 1px solid #f1c7c2; background: #fdf3f2; color: #8a2a1f;
             border-radius: 10px; padding: 10px 14px; font-size: 13.5px; line-height: 1.5; }
 .dark .pc-error { border-color: #5c2a24; background: #2a1715; color: #f3b8b0; }
 .pc-error b { font-weight: 600; }
 
 .pc-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--body-text-color-subdued);
-             padding: 2px 2px 0; }
+             padding: 0 2px; }
 .pc-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .pc-legend i { width: 12px; height: 12px; border-radius: 3px; border: 2px solid; }
 .pc-legend i.fill { border-width: 0; }
@@ -133,7 +138,6 @@ footer { display: none !important; }
 
 .pc-area { font-size: 13px; color: var(--body-text-color-subdued); line-height: 1.5; padding: 0 2px; }
 .pc-area b { color: var(--body-text-color); font-weight: 600; }
-.pc-steps { margin: 6px 0 0 18px; padding: 0; }
 """
 
 
@@ -194,14 +198,14 @@ def counts_html(reply):
 
 def area_note(corners):
     if not corners:
-        return ('<div class="pc-area"><b>Crossing area: none.</b> Everyone in the photo is counted. '
-                "To count only the crossing, click its corners on the output photo.</div>")
+        return ('<div class="pc-area"><b>Crossing area: none</b> · everyone is counted. '
+                "Click the crossing's corners on the photo to count inside it only.</div>")
     if len(corners) < 3:
         more = 3 - len(corners)
-        return (f'<div class="pc-area"><b>Crossing area: {len(corners)} of 3 corners.</b> '
-                f'Click {more} more corner{"s" if more > 1 else ""} on the output photo.</div>')
-    return (f'<div class="pc-area"><b>Crossing area: {len(corners)} corners.</b> Only crossers whose feet are '
-            "inside are counted. More clicks add corners; the area is kept for the next photo.</div>")
+        return (f'<div class="pc-area"><b>Crossing area: {len(corners)} of 3 corners</b> · '
+                f'click {more} more on the photo.</div>')
+    return (f'<div class="pc-area"><b>Crossing area: {len(corners)} corners</b> · only crossers with their feet '
+            "inside are counted. Kept for the next photo.</div>")
 
 
 # ---------------------------------------------------------------- behaviour
@@ -266,30 +270,27 @@ def build_demo():
         last_reply = gr.State(None)
 
         with gr.Row(equal_height=False):
-            with gr.Column(scale=5, min_width=320):
+            # Left: what goes in, and the answer right under it, so the counts need no scrolling.
+            with gr.Column(scale=5, min_width=320, elem_classes="pc-col"):
                 gr.HTML('<div class="pc-section">Input</div>')
-                photo = gr.File(label="Crossing photograph · JPEG or PNG, up to 15 MB", type="filepath", height=150)
-                preview = gr.Image(label="Uploaded photo", type="pil", interactive=False, height=300,
-                                   buttons=[])
+                photo = gr.File(label="Crossing photograph · JPEG or PNG, up to 15 MB", type="filepath", height=120)
+                preview = gr.Image(label="Uploaded photo", type="pil", interactive=False, height=180, buttons=[])
                 threshold = gr.Slider(0.05, 0.95, value=CONF_THRESHOLD, step=0.05, label="Confidence threshold",
                                       info="Detections below this score are ignored.")
-            with gr.Column(scale=7, min_width=320):
+                gr.HTML('<div class="pc-section pc-gap">Counts</div>')
+                counts = gr.HTML(counts_html(None))
+            # Right: the photo with its boxes, the crossing area controls and the raw reply.
+            with gr.Column(scale=7, min_width=320, elem_classes="pc-col"):
                 gr.HTML('<div class="pc-section">Output</div>')
                 output = gr.Image(label="Detections · click the crossing's corners to set the area",
-                                  type="pil", interactive=False, height=470, buttons=["download", "fullscreen"])
+                                  type="pil", interactive=False, height=450, buttons=["download", "fullscreen"])
                 gr.HTML(legend_html())
-                area = gr.HTML(area_note([]))
-                with gr.Row():
-                    undo = gr.Button("Undo last corner", size="sm", variant="secondary")
-                    clear = gr.Button("Clear area", size="sm", variant="secondary")
-
-        with gr.Row(equal_height=False):
-            with gr.Column(scale=1, min_width=320):
-                gr.HTML('<div class="pc-section">Counts</div>')
-                counts = gr.HTML(counts_html(None))
-            with gr.Column(scale=1, min_width=320):
-                gr.HTML('<div class="pc-section">Reply</div>')
-                reply_json = gr.JSON(label="JSON", open=True)
+                with gr.Row(equal_height=True, elem_classes="pc-area-row"):
+                    area = gr.HTML(area_note([]), scale=3)
+                    undo = gr.Button("Undo corner", size="sm", variant="secondary", scale=1, min_width=110)
+                    clear = gr.Button("Clear area", size="sm", variant="secondary", scale=1, min_width=100)
+                gr.HTML('<div class="pc-section pc-gap">Reply (JSON)</div>')
+                reply_json = gr.JSON(show_label=False, open=True, max_height=330)
 
         outputs = [preview, output, counts, reply_json, last_reply]
         photo.change(run, [photo, threshold, corners], outputs)
