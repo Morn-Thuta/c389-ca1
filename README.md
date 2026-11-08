@@ -116,6 +116,31 @@ To fix splits by hand instead, use `--split-log path/to/split_log.csv` and/or `-
 
 Tests: `python -m pytest -q`
 
+## Running our web page (recommended for the demo)
+
+```bash
+python -m app.web --weights ../local_data/weights/final_4cls_ig_v4_m.pt
+```
+
+Then open http://127.0.0.1:8000. The page shows the photo with its boxes, the four counts
+(`person_left`, `person_right`, `wheeled_left`, `wheeled_right`) as cards and the full JSON
+reply side by side. Drag the slider to change the confidence threshold.
+
+- **Crossing area (ROI):** click *Draw crossing area*, click the corners of the crossing on the photo,
+  then click the first point (or press Enter). Only crossers whose feet (bottom centre of the box)
+  are inside the area are counted; the others are drawn grey and dashed and reported as `outside_roi`.
+  The area is remembered in the browser for the next photo from the same camera. *Clear area* counts
+  everyone again.
+- **API:** `POST /api/count` (multipart: `image`, optional `threshold`, optional `roi` as JSON
+  `[[x, y], ...]` fractions of the image) returns the same reply as the page shows; `GET /api/health`
+  reports the loaded model. Interactive docs: http://127.0.0.1:8000/api/docs.
+- **Refusals** come back with the HTTP status in the reply: 400 nothing sent or empty file, 413 too
+  large, 415 not an image, 422 bad threshold or ROI, 503 model not loaded.
+- `--host 0.0.0.0` lets other devices on the same network open it. Photos are processed in memory
+  and never saved.
+
+Code: `app/web.py` (API and page), `app/static/index.html` (the page), `src/roi.py` (ROI test).
+
 ## Running the app (Gradio)
 
 ```bash

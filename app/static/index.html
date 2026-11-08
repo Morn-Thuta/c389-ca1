@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>People Counting Assistant</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --ink: #1b1f24; --muted: #5f6873; --line: #dde1e6;
+    --soft: #eef0f3; --accent: #1f6feb; --roi: #27ae60; --bad: #c0392b; --bad-bg: #fdecea;
+    --pl: rgb(214,69,65); --pr: rgb(46,112,196); --wl: rgb(230,126,34); --wr: rgb(142,68,173);
+    --code-bg: #f7f8fa; --k: #8250df; --s: #0a7a3e; --n: #b35900; --b: #cf222e;
+    --radius: 12px; --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216; --panel: #171b21; --ink: #e6e9ed; --muted: #9aa4af; --line: #2a3038;
+      --soft: #1f242b; --accent: #4c8dff; --bad-bg: #3a1d1a; --code-bg: #12161b;
+      --k: #c297ff; --s: #5fd38d; --n: #f0a35c; --b: #ff7b72;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216; --panel: #171b21; --ink: #e6e9ed; --muted: #9aa4af; --line: #2a3038;
+    --soft: #1f242b; --accent: #4c8dff; --bad-bg: #3a1d1a; --code-bg: #12161b;
+    --k: #c297ff; --s: #5fd38d; --n: #f0a35c; --b: #ff7b72;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+           flex-wrap: wrap; padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 19px; letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+          color: var(--muted); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .pill.ok::before { content: "● "; color: var(--roi); }
+  .pill.down::before { content: "● "; color: var(--bad); }
+  main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 20px;
+         padding: 20px 24px 32px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } header { padding: 14px 16px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card > h2 { margin: 0; padding: 14px 16px 0; font-size: 13px; font-weight: 600; color: var(--muted);
+               text-transform: uppercase; letter-spacing: 0.06em; }
+  aside { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+  /* Photo */
+  .stage { padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .drop { border: 2px dashed var(--line); border-radius: var(--radius); min-height: 340px; display: grid;
+          place-items: center; text-align: center; color: var(--muted); cursor: pointer; padding: 24px;
+          transition: border-color .15s, background .15s; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--soft); }
+  .drop strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
+  .canvas-wrap { position: relative; display: none; }
+  .canvas-wrap.show { display: block; }
+  canvas { display: block; width: 100%; height: auto; border-radius: 8px; background: var(--soft); }
+  canvas.drawing { cursor: crosshair; }
+  .busy { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.65); color: #fff;
+          font-size: 12px; padding: 4px 10px; border-radius: 999px; display: none; }
+  .busy.show { display: block; }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .toolbar .grow { flex: 1 1 220px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .toolbar label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  input[type=range] { flex: 1; min-width: 80px; accent-color: var(--accent); }
+  .val { font: 600 13px var(--mono); min-width: 2.6em; text-align: right; }
+  button { font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+           border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.roi.on { background: var(--roi); border-color: var(--roi); color: #fff; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .hint { font-size: 13px; color: var(--muted); margin: 0; min-height: 1.4em; }
+  .hint b { color: var(--ink); }
+  .error { display: none; border: 1px solid var(--bad); background: var(--bad-bg); color: var(--ink);
+           border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+  .error.show { display: block; }
+  .error b { color: var(--bad); }
+
+  /* Counts */
+  .counts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px 6px; }
+  .count { border: 1px solid var(--line); border-left: 6px solid var(--c); border-radius: 10px;
+           padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .count .key { font: 600 13px var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+  .count .what { font-size: 12px; color: var(--muted); }
+  .count .num { font: 700 34px/1.1 var(--mono); color: var(--c); margin-top: 4px; }
+  .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 8px 16px 16px; }
+  .total { background: var(--soft); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  .total .key { font: 11.5px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+  .total .num { font: 700 20px var(--mono); }
+  .scope { margin: 0; padding: 0 16px 14px; font-size: 13px; color: var(--muted); }
+  .scope b { color: var(--roi); }
+
+  /* JSON */
+  .json-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px 0; }
+  .json-head h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted);
+                  text-transform: uppercase; letter-spacing: 0.06em; }
+  .json-head .btns { display: flex; gap: 6px; align-items: center; }
+  .status { font: 600 12px var(--mono); padding: 2px 8px; border-radius: 6px; background: var(--soft); }
+  .status.ok { color: var(--roi); } .status.bad { color: var(--bad); }
+  pre { margin: 12px 16px 16px; padding: 12px; background: var(--code-bg); border: 1px solid var(--line);
+        border-radius: 8px; font: 12.5px/1.5 var(--mono); max-height: 460px; overflow: auto;
+        white-space: pre; tab-size: 2; }
+  .jk { color: var(--k); } .js { color: var(--s); } .jn { color: var(--n); } .jb { color: var(--b); }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>People Counting Assistant</h1>
+    <p>People on foot and wheeled crossers (bike or scooter with its rider), moving left and right</p>
+  </div>
+  <span class="pill" id="health">Connecting…</span>
+</header>
+
+<main>
+  <section class="card stage">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a crossing photograph">
+      <div><strong>Drop a crossing photo here</strong>or click to choose one · JPEG or PNG, up to 15 MB · you can also paste</div>
+    </div>
+    <div class="canvas-wrap" id="wrap">
+      <canvas id="canvas"></canvas>
+      <span class="busy" id="busy">Counting…</span>
+    </div>
+    <div class="error" id="error" role="alert"></div>
+    <div class="toolbar">
+      <button class="primary" id="choose">Choose photo</button>
+      <div class="grow">
+        <label for="thr">Confidence</label>
+        <input type="range" id="thr" min="0.05" max="0.95" step="0.05" value="0.40">
+        <span class="val" id="thrVal">0.40</span>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="roi" id="drawRoi">Draw crossing area</button>
+      <button id="finishRoi" disabled>Finish area</button>
+      <button id="clearRoi" disabled>Clear area</button>
+      <label class="check"><input type="checkbox" id="showOutside" checked> Show people outside the area</label>
+    </div>
+    <p class="hint" id="hint">No crossing area: everyone in the photo is counted.</p>
+    <input type="file" id="file" accept="image/jpeg,image/png,image/*">
+  </section>
+
+  <aside>
+    <section class="card">
+      <h2>Counts</h2>
+      <div class="counts-grid" id="counts"></div>
+      <div class="totals" id="totals"></div>
+      <p class="scope" id="scope"></p>
+    </section>
+    <section class="card">
+      <div class="json-head">
+        <h2>JSON reply</h2>
+        <div class="btns">
+          <span class="status" id="status">—</span>
+          <button id="copy" disabled>Copy</button>
+          <button id="download" disabled>Download</button>
+        </div>
+      </div>
+      <pre id="json">Upload a photo to see the reply from POST /api/count.</pre>
+    </section>
+  </aside>
+</main>
+
+<script>
+(() => {
+  const CLASSES = [
+    { key: "person_left",   what: "On foot, moving left ←",   colour: "--pl" },
+    { key: "person_right",  what: "On foot, moving right →",  colour: "--pr" },
+    { key: "wheeled_left",  what: "Wheeled, moving left ←",   colour: "--wl" },
+    { key: "wheeled_right", what: "Wheeled, moving right →",  colour: "--wr" },
+  ];
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("canvas"), ctx = canvas.getContext("2d");
+  const state = { file: null, bitmap: null, reply: null, roi: loadRoi(), drawing: false, draft: [],
+                  hover: null, seq: 0 };
+
+  // ---------- storage (per browser; the ROI is a per-camera convenience) ----------
+  function loadRoi() {
+    try { const v = JSON.parse(localStorage.getItem("c389.roi")); return Array.isArray(v) && v.length >= 3 ? v : null; }
+    catch { return null; }
+  }
+  function saveRoi() {
+    try { state.roi ? localStorage.setItem("c389.roi", JSON.stringify(state.roi)) : localStorage.removeItem("c389.roi"); }
+    catch { /* private window: fine without it */ }
+  }
+
+  // ---------- count cards ----------
+  function renderCounts() {
+    const r = state.reply, ok = r && r.status === 200;
+    $("counts").innerHTML = CLASSES.map(c => `
+      <div class="count" style="--c: var(${c.colour})">
+        <span class="key">${c.key}:</span>
+        <span class="what">${c.what}</span>
+        <span class="num">${ok ? r.counts[c.key] : "–"}</span>
+      </div>`).join("");
+    const totals = [["total_left", ok ? r.counts.total_left : "–"], ["total_right", ok ? r.counts.total_right : "–"],
+                    ["outside_roi", ok ? (r.roi ? r.outside_roi : "–") : "–"]];
+    $("totals").innerHTML = totals.map(([k, v]) =>
+      `<div class="total"><div class="key">${k}:</div><div class="num">${v}</div></div>`).join("");
+    $("scope").innerHTML = !ok ? "" : r.roi
+      ? `Counting inside the <b>crossing area</b> only. ${r.outside_roi} found outside it ${r.outside_roi === 1 ? "is" : "are"} not counted.`
+      : "Counting everyone in the photo.";
+  }
+
+  // ---------- JSON panel ----------
+  function escapeHtml(s) { return s.replace(/[&<>]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])); }
+  function highlight(json) {
+    return escapeHtml(json).replace(
+      /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+      (m, str, colon, lit, num) => str ? (colon ? `<span class="jk">${str}</span>${colon}` : `<span class="js">${str}</span>`)
+                                  : lit ? `<span class="jb">${lit}</span>` : `<span class="jn">${num}</span>`);
+  }
+  function renderJson() {
+    const r = state.reply;
+    if (!r) return;
+    $("json").innerHTML = highlight(JSON.stringify(r, null, 2));
+    const s = $("status");
+    s.textContent = r.status;
+    s.className = "status " + (r.status === 200 ? "ok" : "bad");
+    $("copy").disabled = $("download").disabled = false;
+  }
+
+  // ---------- canvas ----------
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function fitCanvas() {
+    if (!state.bitmap) return null;
+    const w = $("wrap").clientWidth, h = Math.round(w * state.bitmap.height / state.bitmap.width);
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w, h };
+  }
+  function draw() {
+    const size = fitCanvas();
+    if (!size) return;
+    const { w, h } = size;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(state.bitmap, 0, 0, w, h);
+
+    // Crossing area
+    const pts = state.drawing ? state.draft : state.roi;
+    if (pts && pts.length) {
+      ctx.save();
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => i ? ctx.lineTo(x * w, y * h) : ctx.moveTo(x * w, y * h));
+      if (state.drawing && state.hover) ctx.lineTo(state.hover[0] * w, state.hover[1] * h);
+      if (!state.drawing) ctx.closePath();
+      if (!state.drawing) { ctx.fillStyle = "rgba(39,174,96,0.12)"; ctx.fill(); }
+      ctx.strokeStyle = css("--roi"); ctx.lineWidth = 2.5; ctx.setLineDash(state.drawing ? [6, 4] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (state.drawing) pts.forEach(([x, y], i) => {
+        ctx.beginPath(); ctx.arc(x * w, y * h, i === 0 ? 6 : 4, 0, Math.PI * 2);
+        ctx.fillStyle = i === 0 ? "#fff" : css("--roi"); ctx.fill();
+        ctx.strokeStyle = css("--roi"); ctx.lineWidth = 2; ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    // Boxes
+    const r = state.reply;
+    if (!r || r.status !== 200 || state.drawing) return;
+    const sx = w / r.image_size[0], sy = h / r.image_size[1];
+    const font = Math.max(11, Math.min(14, Math.round(w / 60)));
+    ctx.font = `600 ${font}px system-ui, sans-serif`;
+    for (const d of r.detections) {
+      const counted = d.in_roi !== false;
+      if (!counted && !$("showOutside").checked) continue;
+      const [x1, y1, x2, y2] = d.box.map((v, i) => v * (i % 2 ? sy : sx));
+      const wheeled = d.class_name.startsWith("wheeled");
+      const colour = counted ? css({ person_left: "--pl", person_right: "--pr", wheeled_left: "--wl", wheeled_right: "--wr" }[d.class_name]) : "rgb(150,150,150)";
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = counted ? (wheeled ? 3.5 : 2) : 1.5;
+      ctx.setLineDash(counted ? [] : [5, 4]);
+      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      ctx.setLineDash([]);
+      const label = `${d.direction === "left" ? "←" : "→"} ${wheeled ? "wheeled" : "walk"} ${d.confidence.toFixed(2)}`;
+      const tw = ctx.measureText(label).width + 8, th = font + 6;
+      const ty = y1 - th >= 0 ? y1 - th : y1;
+      ctx.fillStyle = colour; ctx.fillRect(x1, ty, tw, th);
+      ctx.fillStyle = "#fff"; ctx.fillText(label, x1 + 4, ty + font);
+    }
+  }
+
+  // ---------- requests ----------
+  function showError(r) {
+    const e = $("error");
+    if (!r || r.status === 200) { e.className = "error"; e.innerHTML = ""; return; }
+    e.className = "error show";
+    e.innerHTML = `<b>${r.status}: ${escapeHtml(r.error || "Something went wrong.")}</b><br>${escapeHtml(r.detail || "")}`;
+  }
+  async function run() {
+    if (!state.file) return;
+    const seq = ++state.seq;
+    const form = new FormData();
+    form.append("image", state.file);
+    form.append("threshold", $("thr").value);
+    if (state.roi) form.append("roi", JSON.stringify(state.roi));
+    $("busy").classList.add("show");
+    let reply;
+    try {
+      const res = await fetch("/api/count", { method: "POST", body: form });
+      reply = await res.json();
+    } catch (err) {
+      reply = { status: 0, error: "The service did not answer.", detail: "Is python -m app.web still running?" };
+    }
+    if (seq !== state.seq) return;            // a newer request has been sent
+    $("busy").classList.remove("show");
+    state.reply = reply;
+    showError(reply); renderCounts(); renderJson(); draw();
+  }
+  let timer = null;
+  function runSoon() { clearTimeout(timer); timer = setTimeout(run, 250); }
+
+  async function useFile(file) {
+    if (!file) return;
+    state.file = file; state.reply = null;
+    try { state.bitmap = await createImageBitmap(file); }
+    catch { state.bitmap = null; }            // not an image: the service explains why
+    $("drop").style.display = state.bitmap ? "none" : "";
+    $("wrap").classList.toggle("show", !!state.bitmap);
+    $("drawRoi").disabled = !state.bitmap;
+    draw();
+    run();
+  }
+
+  // ---------- crossing area drawing ----------
+  function setHint() {
+    $("hint").innerHTML = state.drawing
+      ? `Click the corners of the crossing on the photo. <b>${state.draft.length}</b> point${state.draft.length === 1 ? "" : "s"}. Click the first point or press Enter to finish (3 or more), Backspace to undo, Esc to cancel.`
+      : state.roi ? "Only people whose feet are inside the green area are counted. The area is kept for the next photo from the same camera."
+                  : "No crossing area: everyone in the photo is counted.";
+    $("drawRoi").classList.toggle("on", state.drawing);
+    $("drawRoi").textContent = state.drawing ? "Cancel drawing" : (state.roi ? "Redraw crossing area" : "Draw crossing area");
+    $("finishRoi").disabled = !(state.drawing && state.draft.length >= 3);
+    $("clearRoi").disabled = state.drawing || !state.roi;
+    canvas.classList.toggle("drawing", state.drawing);
+  }
+  function startDrawing() { state.drawing = true; state.draft = []; state.hover = null; setHint(); draw(); }
+  function stopDrawing(keep) {
+    if (keep && state.draft.length >= 3) { state.roi = state.draft.map(([x, y]) => [+x.toFixed(4), +y.toFixed(4)]); saveRoi(); }
+    state.drawing = false; state.draft = []; state.hover = null;
+    setHint(); draw();
+    if (keep) run();
+  }
+  function pointFrom(ev) {
+    const b = canvas.getBoundingClientRect();
+    return [Math.min(1, Math.max(0, (ev.clientX - b.left) / b.width)), Math.min(1, Math.max(0, (ev.clientY - b.top) / b.height))];
+  }
+  canvas.addEventListener("click", (ev) => {
+    if (!state.drawing) return;
+    const p = pointFrom(ev), b = canvas.getBoundingClientRect();
+    if (state.draft.length >= 3) {
+      const [fx, fy] = state.draft[0];
+      if (Math.hypot((p[0] - fx) * b.width, (p[1] - fy) * b.height) < 12) return stopDrawing(true);
+    }
+    state.draft.push(p); setHint(); draw();
+  });
+  canvas.addEventListener("mousemove", (ev) => { if (state.drawing) { state.hover = pointFrom(ev); draw(); } });
+  canvas.addEventListener("mouseleave", () => { if (state.drawing) { state.hover = null; draw(); } });
+  document.addEventListener("keydown", (ev) => {
+    if (!state.drawing) return;
+    if (ev.key === "Enter") stopDrawing(true);
+    else if (ev.key === "Escape") stopDrawing(false);
+    else if (ev.key === "Backspace") { ev.preventDefault(); state.draft.pop(); setHint(); draw(); }
+  });
+  $("drawRoi").onclick = () => state.drawing ? stopDrawing(false) : startDrawing();
+  $("finishRoi").onclick = () => stopDrawing(true);
+  $("clearRoi").onclick = () => { state.roi = null; saveRoi(); setHint(); draw(); run(); };
+  $("showOutside").onchange = draw;
+
+  // ---------- inputs ----------
+  $("choose").onclick = () => $("file").click();
+  $("drop").onclick = () => $("file").click();
+  $("drop").onkeydown = (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); $("file").click(); } };
+  $("file").onchange = (ev) => { useFile(ev.target.files[0]); ev.target.value = ""; };
+  ["dragover", "dragenter"].forEach(t => document.addEventListener(t, (ev) => { ev.preventDefault(); $("drop").classList.add("over"); }));
+  ["dragleave", "drop"].forEach(t => document.addEventListener(t, (ev) => { ev.preventDefault(); $("drop").classList.remove("over"); }));
+  document.addEventListener("drop", (ev) => useFile(ev.dataTransfer.files[0]));
+  document.addEventListener("paste", (ev) => {
+    const item = [...(ev.clipboardData?.items || [])].find(i => i.type.startsWith("image/"));
+    if (item) useFile(item.getAsFile());
+  });
+  $("thr").oninput = () => { $("thrVal").textContent = (+$("thr").value).toFixed(2); runSoon(); };
+  $("copy").onclick = async () => {
+    try { await navigator.clipboard.writeText(JSON.stringify(state.reply, null, 2)); $("copy").textContent = "Copied"; }
+    catch { $("copy").textContent = "Copy failed"; }
+    setTimeout(() => $("copy").textContent = "Copy", 1200);
+  };
+  $("download").onclick = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(state.reply, null, 2)], { type: "application/json" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: "count_reply.json" });
+    a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  window.addEventListener("resize", draw);
+
+  // ---------- start ----------
+  fetch("/api/health").then(r => r.json()).then(h => {
+    const pill = $("health");
+    pill.className = "pill " + (h.model_loaded ? "ok" : "down");
+    pill.textContent = h.model_loaded ? `${h.model_weights} · v${h.service_version}` : "Model not loaded";
+    pill.title = h.model_mode || "";
+    if (typeof h.default_threshold === "number") { $("thr").value = h.default_threshold; $("thrVal").textContent = h.default_threshold.toFixed(2); }
+  }).catch(() => { $("health").className = "pill down"; $("health").textContent = "Service offline"; });
+  $("drawRoi").disabled = true;
+  renderCounts(); setHint();
+})();
+</script>
+</body>
+</html>

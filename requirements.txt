@@ -1,5 +1,9 @@
 ultralytics==8.4.120
 gradio
+fastapi
+uvicorn
+python-multipart
+httpx
 roboflow
 imagehash
 pandas
