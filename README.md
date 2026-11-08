@@ -118,6 +118,8 @@ Tests: `python -m pytest -q`
 
 ## Running the app (Gradio)
 
+Step-by-step for teammates (laptop or Colab, sharing a link): [docs/RUN_THE_APP.md](docs/RUN_THE_APP.md).
+
 ```bash
 python -m app.app --weights ../local_data/weights/final_4cls_ig_v4_m.pt          # local, http://127.0.0.1:7860
 python -m app.app --weights /content/drive/.../best.pt --share                    # Colab, public gradio.live link
