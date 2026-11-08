@@ -123,7 +123,8 @@ python -m app.app --weights ../local_data/weights/final_4cls_ig_v4_m.pt         
 python -m app.app --weights /content/drive/.../best.pt --share                    # Colab, public gradio.live link
 ```
 
-- **Input:** the crossing photo and the confidence threshold. **Output:** the photo with its boxes
+- **Input:** a file upload (any file reaches the service, so a non-photo is refused on the page with its status
+  and reason) with a preview, and the confidence threshold. **Output:** the photo with its boxes
   (people red = left, blue = right; wheeled, thick box: orange = left, purple = right), the four counts
   (`person_left`, `person_right`, `wheeled_left`, `wheeled_right`) with totals, and the JSON reply.
 - **Crossing area (ROI):** click the corners of the crossing on the Output photo. From the third corner on,
@@ -131,6 +132,8 @@ python -m app.app --weights /content/drive/.../best.pt --share                  
   drawn grey and reported as `outside_roi`. *Undo last corner* and *Clear crossing area* edit it, and it stays
   for the next photo. Re-counting the same photo reuses the detections, so clicks and the slider are instant.
 - **Weights:** defaults to `$PROJECT_ROOT/artifacts/L3/best.pt`; override with `--weights` or `MODEL_WEIGHTS`.
+- **From a notebook,** start it with `launch(build_demo(), share=True)` (from `app.app`): Gradio 6 takes the
+  page's theme and stylesheet at launch, so plain `demo.launch()` shows it unstyled.
 - The reply keeps the L4 shape plus `roi` and `outside_roi`. Bad input is refused with a status and a reason
   (400 nothing sent or empty, 413 too large, 415 not an image, 422 bad threshold or area). Every request logs
   one line with status, latency and counts.

@@ -44,29 +44,32 @@ def photo(tmp_path):
 
 
 def test_run_counts_whole_photo(fake, photo):
-    marked, html, reply, state = app.run(photo, 0.4, [])
-    assert marked.size == (400, 200)
+    preview, marked, html, reply, state = app.run(photo, 0.4, [])
+    assert marked.size == (400, 200) and preview.size == (400, 200)
     assert reply["counts"]["person_left"] == 1 and reply["counts"]["wheeled_right"] == 1
     assert reply is state and reply["roi"] is None
     assert "person_left:" in html and "wheeled_right:" in html
 
 
 def test_no_photo_and_bad_file(fake, tmp_path):
-    marked, html, reply, _ = app.run(None, 0.4, [])
-    assert marked is None and reply is None and "Upload a photo" in html
+    preview, marked, html, reply, _ = app.run(None, 0.4, [])
+    assert preview is None and marked is None and reply is None and "Upload a photo" in html
     text = tmp_path / "notes.txt"
     text.write_text("not a photo")
-    marked, html, reply, _ = app.run(str(text), 0.4, [])
-    assert marked is None and reply["status"] == 415 and "not a readable image" in html
+    preview, marked, html, reply, _ = app.run(str(text), 0.4, [])
+    assert preview is None and marked is None and reply["status"] == 415 and "Refused · 415" in html
+    empty = tmp_path / "empty.jpg"
+    empty.write_bytes(b"")
+    assert app.run(str(empty), 0.4, [])[3]["status"] == 400
 
 
 def test_three_clicks_make_an_area_and_the_model_runs_once(fake, photo):
-    _, _, _, reply = app.run(photo, 0.4, [])
+    reply = app.run(photo, 0.4, [])[3]
     corners = []
     # Left half of the photo: corners at the top and bottom of x = 0 and x = 200 px.
     for x, y in [(0, 0), (200, 0), (200, 200)]:
-        corners, marked, html, reply, _, note = app.add_corner(photo, 0.4, corners, reply, Click(x, y))
-    corners, marked, html, reply, _, note = app.add_corner(photo, 0.4, corners, reply, Click(0, 200))
+        corners, _, marked, html, reply, _, note = app.add_corner(photo, 0.4, corners, reply, Click(x, y))
+    corners, _, marked, html, reply, _, note = app.add_corner(photo, 0.4, corners, reply, Click(0, 200))
     assert corners == [[0.0, 0.0], [0.5, 0.0], [0.5, 1.0], [0.0, 1.0]]
     assert reply["counts"]["person_left"] == 1 and reply["counts"]["wheeled_right"] == 0
     assert reply["outside_roi"] == 1 and "4 corners" in note
@@ -75,9 +78,9 @@ def test_three_clicks_make_an_area_and_the_model_runs_once(fake, photo):
 
 def test_undo_and_clear(fake, photo):
     corners = [[0, 0], [0.5, 0], [0.5, 1]]
-    corners, _, _, reply, _, note = app.undo_corner(photo, 0.4, corners)
+    corners, _, _, _, reply, _, note = app.undo_corner(photo, 0.4, corners)
     assert len(corners) == 2 and reply["roi"] is None and "1 more" in note
-    corners, _, _, reply, _, note = app.clear_area(photo, 0.4)
+    corners, _, _, _, reply, _, note = app.clear_area(photo, 0.4)
     assert corners == [] and reply["roi"] is None and "none" in note
 
 
