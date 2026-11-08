@@ -116,43 +116,28 @@ To fix splits by hand instead, use `--split-log path/to/split_log.csv` and/or `-
 
 Tests: `python -m pytest -q`
 
-## Running our web page (recommended for the demo)
-
-```bash
-python -m app.web --weights ../local_data/weights/final_4cls_ig_v4_m.pt
-```
-
-Then open http://127.0.0.1:8000. Like the Gradio page, it has an **Input** panel (upload the photo,
-set the confidence threshold, draw the crossing area) beside an **Output** panel (the photo with its
-boxes). Below them are the four counts (`person_left`, `person_right`, `wheeled_left`, `wheeled_right`)
-as cards and the full JSON reply. Changing the photo, threshold or area counts again straight away.
-
-- **Crossing area (ROI):** click *Draw crossing area*, click the corners of the crossing on the photo,
-  then click the first point (or press Enter). Only crossers whose feet (bottom centre of the box)
-  are inside the area are counted; the others are drawn grey and dashed and reported as `outside_roi`.
-  The area is remembered in the browser for the next photo from the same camera. *Clear area* counts
-  everyone again.
-- **API:** `POST /api/count` (multipart: `image`, optional `threshold`, optional `roi` as JSON
-  `[[x, y], ...]` fractions of the image) returns the same reply as the page shows; `GET /api/health`
-  reports the loaded model. Interactive docs: http://127.0.0.1:8000/api/docs.
-- **Refusals** come back with the HTTP status in the reply: 400 nothing sent or empty file, 413 too
-  large, 415 not an image, 422 bad threshold or ROI, 503 model not loaded.
-- `--host 0.0.0.0` lets other devices on the same network open it. Photos are processed in memory
-  and never saved.
-
-Code: `app/web.py` (API and page), `app/static/index.html` (the page), `src/roi.py` (ROI test).
-
 ## Running the app (Gradio)
 
 ```bash
-python -m app.app --share
+python -m app.app --weights ../local_data/weights/final_4cls_ig_v4_m.pt          # local, http://127.0.0.1:7860
+python -m app.app --weights /content/drive/.../best.pt --share                    # Colab, public gradio.live link
 ```
 
-- **Weights:** defaults to `$PROJECT_ROOT/artifacts/L3/best.pt`, the baseline saved by the L3 notebook. Override it with `--weights` or `MODEL_WEIGHTS`. Our Drive folder is `C389_2`, so on Colab set `PROJECT_ROOT=/content/drive/MyDrive/C389_2`.
-- **Wheeled crossers:** counted when the weights include `wheeled_left` and `wheeled_right` (`twist_4cls`). With the 2-class baseline only people are counted.
-- The reply keeps the L4 shape, with the counts from PRD §7.3. Every request logs one line with status, latency and counts.
+- **Input:** the crossing photo and the confidence threshold. **Output:** the photo with its boxes
+  (people red = left, blue = right; wheeled, thick box: orange = left, purple = right), the four counts
+  (`person_left`, `person_right`, `wheeled_left`, `wheeled_right`) with totals, and the JSON reply.
+- **Crossing area (ROI):** click the corners of the crossing on the Output photo. From the third corner on,
+  only crossers whose feet (bottom centre of the box) are inside the green area are counted; the others are
+  drawn grey and reported as `outside_roi`. *Undo last corner* and *Clear crossing area* edit it, and it stays
+  for the next photo. Re-counting the same photo reuses the detections, so clicks and the slider are instant.
+- **Weights:** defaults to `$PROJECT_ROOT/artifacts/L3/best.pt`; override with `--weights` or `MODEL_WEIGHTS`.
+- The reply keeps the L4 shape plus `roi` and `outside_roi`. Bad input is refused with a status and a reason
+  (400 nothing sent or empty, 413 too large, 415 not an image, 422 bad threshold or area). Every request logs
+  one line with status, latency and counts.
 
-Code: `src/counting.py` (counts), `src/linking.py` (rider + bike to one wheeled box, for data tools), `src/detector.py` (model wrapper), `app/service.py` (validate, count, reply, annotate) and `app/app.py` (the page).
+Code: `src/counting.py` (counts), `src/roi.py` (crossing area), `src/linking.py` (rider + bike to one wheeled
+box, for data tools), `src/detector.py` (model wrapper), `app/service.py` (validate, count, reply, annotate)
+and `app/app.py` (the page).
 
 ## Workflow
 
