@@ -122,9 +122,10 @@ Tests: `python -m pytest -q`
 python -m app.web --weights ../local_data/weights/final_4cls_ig_v4_m.pt
 ```
 
-Then open http://127.0.0.1:8000. The page shows the photo with its boxes, the four counts
-(`person_left`, `person_right`, `wheeled_left`, `wheeled_right`) as cards and the full JSON
-reply side by side. Drag the slider to change the confidence threshold.
+Then open http://127.0.0.1:8000. Like the Gradio page, it has an **Input** panel (upload the photo,
+set the confidence threshold, draw the crossing area) beside an **Output** panel (the photo with its
+boxes). Below them are the four counts (`person_left`, `person_right`, `wheeled_left`, `wheeled_right`)
+as cards and the full JSON reply. Changing the photo, threshold or area counts again straight away.
 
 - **Crossing area (ROI):** click *Draw crossing area*, click the corners of the crossing on the photo,
   then click the first point (or press Enter). Only crossers whose feet (bottom centre of the box)
