@@ -24,6 +24,7 @@ people, so they stay on the team's private Drive. The weights (`.pt`, 44 MB) are
 | `training/args.yaml` | Every training setting Ultralytics used |
 | `test/test_results.txt` | The one test-set run (7 Nov), detection and counting |
 | `test/*.png` | Test-set curves and confusion matrix |
+| `deployment/CA1_try_trial_colab_log.ipynb` | The deployment notebook run on Colab (7 Nov): the final model loads and the Gradio page opens with a public share link (link hidden, now expired) |
 | `model_selection/` | How the final model was chosen, on the **valid** set only (the test set was not used to choose) |
 
 ## Results
