@@ -1,0 +1,5 @@
+Ultralytics val on VALID (132 photos, imgsz 640) plus app counting at 0.40, run 2026-11-08 by scratchpad cmp_models.py:
+final_4cls_ig_v4_s           mAP50 0.898  mAP50-95 0.616  exact 52.3%  MAE 0.98
+final_4cls_ig_v4_m           mAP50 0.931  mAP50-95 0.624  exact 59.8%  MAE 0.79
+final_4cls_ig_v5_m_ft        mAP50 0.932  mAP50-95 0.610  exact 50.8%  MAE 1.04
+final_4cls_ig_v5_m_mirror    mAP50 0.919  mAP50-95 0.631  exact 56.1%  MAE 0.89

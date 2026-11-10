@@ -4,6 +4,21 @@ Counts people moving **left** vs **right** at a pedestrian crossing from a singl
 
 - Full spec: [PRD.md](PRD.md)
 - Team briefing: [docs/CA1_Team_Briefing.md](docs/CA1_Team_Briefing.md)
+- Running the app: [docs/RUN_THE_APP.md](docs/RUN_THE_APP.md)
+
+## Final model and results
+
+`final_4cls_ig_v4_m`: YOLO26m trained on Colab (T4) for 150 epochs on `final_ig_v4`
+(1517 train, 132 valid, 66 test). The training log, curves, settings and the one test run are in
+[reports/final_v4_26m/](reports/final_v4_26m/README.md).
+
+| | mAP50 | All four counts exact | Count error per photo |
+|---|---|---|---|
+| Valid (132 photos) | 0.931 | 59.8% | 0.79 |
+| Test (66 photos, run once) | 0.858 | 53.0% | 1.21 |
+
+It was chosen over v4 26s, two v5 runs and two tuning runs on the valid set only
+([comparison](reports/final_v4_26m/README.md#models-we-compared-valid-set-threshold-040)).
 
 ## Hard rules (read before you commit)
 
@@ -13,19 +28,19 @@ Counts people moving **left** vs **right** at a pedestrian crossing from a singl
 - `ultralytics==8.4.120` (pinned).
 - **Never** commit the Roboflow API key. Use Colab Secrets (`ROBOFLOW_API_KEY`) or `getpass`.
 - **Never** commit photos, datasets, runs or `*.pt` weights. They stay on the module Drive / Roboflow.
-- Clear notebook outputs before committing.
+- Clear notebook outputs before committing. The one exception is the final training log in `reports/final_v4_26m/training/`, kept as evidence with its photo outputs removed.
 - The test set (`test_v1`) is used once, for the final comparison only.
 
 ## Layout
 
 ```
 notebooks/   lecturer notebooks + our adapted copies (outputs cleared)
-src/         config, data tooling, counting, training, evaluation
-app/         Gradio service
-scripts/     timing and helper scripts
+src/         config, data tooling, counting, crossing area, model wrapper
+app/         Gradio page and service
+scripts/eval valid-set comparison scripts (model choice, settings sweep)
 tests/       pytest
-reports/     generated metrics and plots (no raw photos)
-docs/        team docs
+reports/     training evidence, metrics and plots (no raw photos)
+docs/        team docs, labelling guide, how to run the app
 ```
 
 ## Setup
@@ -146,5 +161,5 @@ and `app/app.py` (the page).
 
 ## Workflow
 
-- Branch off `main` for each task (`feat/verify-export`, `feat/counting`, ...), then open a PR.
+- `main` holds the submitted version. Branch off `main` for each task, then open a PR.
 - Milestones and acceptance criteria: PRD §11 and §12.

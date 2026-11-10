@@ -7,7 +7,7 @@ You need two things:
 
 | What | Where |
 |---|---|
-| The code | This repo, branch `feat/wheeled-classes` (or the share zip) |
+| The code | This repo, branch `main` (or the share zip) |
 | The model weights `final_4cls_ig_v4_m.pt` (44 MB) | The team's private Drive folder or the share zip. Never in git. |
 
 ## Option A: your laptop (recommended for the demo)

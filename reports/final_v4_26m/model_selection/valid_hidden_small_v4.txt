@@ -1,0 +1,18 @@
+Valid set (132 photos), final_4cls_ig_v4_m.pt, imgsz 640, threshold 0.40. Generated 2026-11-09 by scratchpad diagnose.py. 'occluded' = >=30% of the box covered by another labelled box; heights as share of photo.
+imgsz 640: best prediction (IoU>=0.5) per ground-truth crosser
+group                                     n found>=0.4 wrongcls  0.2-0.4 0.05-0.2  missed
+clear(<10%)                             388        89%       5%       1%       2%      3%
+clear(<10%)|person                      325        88%       5%       2%       2%      4%
+clear(<10%)|wheeled                      63        92%       5%       0%       3%      0%
+occluded(>=30% covered)                  49        67%      12%       6%       2%     12%
+occluded(>=30% covered)|person           47        66%      13%       6%       2%     13%
+occluded(>=30% covered)|wheeled           2       100%       0%       0%       0%      0%
+partly(10-30%)                           73        95%       3%       0%       1%      1%
+partly(10-30%)|person                    65        94%       3%       0%       2%      2%
+partly(10-30%)|wheeled                    8       100%       0%       0%       0%      0%
+
+by box height (share of image), found >=0.4 with right class:
+  0.00-0.10: n= 70  found  59%   any-class>=0.2  73%
+  0.10-0.20: n=167  found  86%   any-class>=0.2  95%
+  0.20-0.35: n=231  found  98%   any-class>=0.2 100%
+  0.35-1.01: n= 42  found  86%   any-class>=0.2  95%
