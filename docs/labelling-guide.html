@@ -1,0 +1,449 @@
+<title>Crossing Labelling Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a single reading column like a field manual; class chips up top, a decision rule, then a grid of drawn example scenes, then checklists. */
+:root {
+  --bg: #f6f7f5;
+  --paper: #ffffff;
+  --ink: #1d2320;
+  --muted: #5b6460;
+  --line: #d9ddd9;
+  --road: #3a403d;
+  --stripe: #eef0ec;
+  --tactile: #e2ad12;
+  --skin: #c99a7a;
+  --figure: #2b3230;
+  --bike: #5d6763;
+  --c-pl: #d6453f;   /* person_left  (app: red) */
+  --c-pr: #2e70c4;   /* person_right (app: blue) */
+  --c-wl: #e07a1a;   /* wheeled_left  (app: orange) */
+  --c-wr: #8e44ad;   /* wheeled_right (app: purple) */
+  --good: #2f8a4c;
+  --bad: #c0392b;
+  --display: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141816; --paper: #1c211f; --ink: #e8ece9; --muted: #9aa49f; --line: #333a37;
+    --road: #2a2f2d; --stripe: #c9cdc8; --tactile: #c9970c; --skin: #b98b6c; --figure: #d7dcd9; --bike: #a6b0ab;
+    --c-pl: #ef6b64; --c-pr: #5b97e6; --c-wl: #f19a45; --c-wr: #b77fd3; --good: #57b874; --bad: #e8675a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141816; --paper: #1c211f; --ink: #e8ece9; --muted: #9aa49f; --line: #333a37;
+  --road: #2a2f2d; --stripe: #c9cdc8; --tactile: #c9970c; --skin: #b98b6c; --figure: #d7dcd9; --bike: #a6b0ab;
+  --c-pl: #ef6b64; --c-pr: #5b97e6; --c-wl: #f19a45; --c-wr: #b77fd3; --good: #57b874; --bad: #e8675a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 48px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.1; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); letter-spacing: -0.01em; }
+h2 { font-size: 1.75rem; }
+h3 { font-size: 1.15rem; }
+p { margin: 0; max-width: 68ch; }
+code, .cls { font-family: var(--mono); font-size: 0.88em; }
+.eyebrow { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.8rem; color: var(--muted); }
+section { display: grid; gap: 18px; }
+.lede { font-size: 1.12rem; color: var(--muted); }
+
+/* zebra strip under the title */
+.zebra { height: 14px; border-radius: 3px; background: repeating-linear-gradient(90deg, var(--stripe) 0 22px, var(--road) 22px 40px); }
+.tactile { display: inline-block; width: 10px; height: 10px; background: var(--tactile); transform: rotate(45deg); margin-right: 8px; vertical-align: 1px; }
+
+/* class chips */
+.classes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.chip { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 6px; border-top: 4px solid var(--c); min-width: 0; }
+.chip .id { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+.chip .name { font-family: var(--mono); font-weight: 700; font-size: 1.02rem; color: var(--c); overflow-wrap: anywhere; }
+.chip .what { font-size: 0.95rem; color: var(--muted); }
+
+/* the two questions */
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.rule { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.rule .q { font-family: var(--display); font-weight: 700; font-size: 1.3rem; }
+.rule ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.rule svg { width: 100%; height: auto; max-width: 100%; display: block; }
+
+/* example scenes */
+.scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.scene { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.scene svg { width: 100%; height: auto; display: block; background: var(--paper); }
+.scene .cap { padding: 12px 14px 14px; display: grid; gap: 4px; border-top: 1px solid var(--line); }
+.verdict { font-family: var(--display); font-weight: 700; font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
+.verdict.ok { color: var(--good); }
+.verdict.no { color: var(--bad); }
+.verdict.none { color: var(--muted); }
+.cap .label { font-family: var(--mono); font-weight: 700; font-size: 0.9rem; }
+.cap p { font-size: 0.94rem; color: var(--muted); }
+
+/* reference table */
+.tablebox { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+.tag { font-family: var(--mono); font-weight: 700; font-size: 0.86rem; white-space: nowrap; }
+.tag.pl { color: var(--c-pl); } .tag.pr { color: var(--c-pr); } .tag.wl { color: var(--c-wl); } .tag.wr { color: var(--c-wr); }
+.tag.nb { color: var(--muted); }
+
+/* checklists */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.list { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.list ol, .list ul { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+.never { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.never h3 { color: var(--bad); }
+.pipeline { font-family: var(--mono); font-size: 0.86rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; overflow-x: auto; white-space: pre; }
+footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--line); padding-top: 16px; }
+
+/* SVG parts take theme tokens */
+.s-road { fill: var(--road); }
+.s-stripe { fill: var(--stripe); }
+.s-tac { fill: var(--tactile); }
+.s-head { fill: var(--skin); }
+.s-body { fill: var(--figure); }
+.s-limb { stroke: var(--figure); stroke-width: 5; stroke-linecap: round; fill: none; }
+.s-wheel { fill: none; stroke: var(--bike); stroke-width: 3; }
+.s-frame { fill: none; stroke: var(--bike); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.s-arrow { fill: none; stroke: var(--muted); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.s-text { fill: var(--muted); font-family: var(--body); font-size: 11px; }
+.s-edge { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.s-cross { stroke: var(--bad); stroke-width: 4; stroke-linecap: round; }
+@media (prefers-reduced-motion: no-preference) { .scene { transition: transform .15s ease; } .scene:hover { transform: translateY(-2px); } }
+@page { size: A4; margin: 14mm 12mm; }
+@media print {
+  :root { --bg: #ffffff; }
+  body { padding: 0; font-size: 10.5pt; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* grid sections don't split across pages in print, so stack plain blocks instead */
+  .wrap, section { display: block; max-width: none; }
+  section { margin-top: 22px; }
+  section > * + * { margin-top: 10px; }
+  header > * + * { margin-top: 8px; }
+  h1 { font-size: 2.2rem; }
+  h2 { font-size: 1.4rem; break-after: avoid; }
+  .classes { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .rules, .cols { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .scenes { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .scene .cap { padding: 7px 9px 9px; }
+  .cap p { font-size: 0.82rem; }
+  .chip, .rule, .scene, .list, tr { break-inside: avoid; }
+  .classes { break-inside: avoid; }
+  .rule svg { max-height: 95px; }
+  .rule { padding: 14px; gap: 8px; }
+  #examples { break-before: page; }
+  #reference { break-before: page; }
+  .scene:hover { transform: none; }
+  table { min-width: 0; }
+  .pipeline { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.78rem; overflow: visible; }
+  footer { margin-top: 20px; }
+}
+</style>
+
+<div class="wrap">
+
+  <header style="display:grid;gap:14px">
+    <span class="eyebrow">C389 CA1 · Team Supernova · People counting + Twist 2</span>
+    <h1>Crossing Labelling Guide</h1>
+    <div class="zebra" aria-hidden="true"></div>
+    <p class="lede">How to draw boxes in Roboflow from now on. Four classes, two questions per person, and a box around everyone you can see.</p>
+  </header>
+
+  <section aria-labelledby="classes-h">
+    <h2 id="classes-h">The four classes</h2>
+    <p>Type the names exactly as shown: lowercase, with an underscore. The colours match the boxes the app draws.</p>
+    <div class="classes">
+      <div class="chip" style="--c:var(--c-pl)"><span class="id">id 0</span><span class="name">person_left</span><span class="what">On foot, moving towards the left edge of the photo</span></div>
+      <div class="chip" style="--c:var(--c-pr)"><span class="id">id 1</span><span class="name">person_right</span><span class="what">On foot, moving towards the right edge of the photo</span></div>
+      <div class="chip" style="--c:var(--c-wl)"><span class="id">id 2</span><span class="name">wheeled_left</span><span class="what">A person with a bike or scooter, moving left</span></div>
+      <div class="chip" style="--c:var(--c-wr)"><span class="id">id 3</span><span class="name">wheeled_right</span><span class="what">A person with a bike or scooter, moving right</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="rules-h">
+    <h2 id="rules-h">Ask two questions for every person</h2>
+    <div class="rules">
+      <div class="rule">
+        <span class="eyebrow">Question 1</span>
+        <span class="q">Do they have a bike or scooter?</span>
+        <svg viewBox="0 0 300 120" role="img" aria-label="Riding, walking beside or carrying a bike all count as wheeled">
+          <g id="q1"></g>
+        </svg>
+        <ul>
+          <li><b>Yes</b>, riding it, walking beside it, or carrying it: <span class="cls" style="color:var(--c-wl)">wheeled_*</span>. Draw <b>one box</b> around the person <i>and</i> the vehicle.</li>
+          <li><b>No</b>: <span class="cls" style="color:var(--c-pl)">person_*</span>, a box around the person.</li>
+          <li>A bike with nobody at it gets <b>no box</b>.</li>
+        </ul>
+      </div>
+      <div class="rule">
+        <span class="eyebrow">Question 2</span>
+        <span class="q">Which way across the photo are they going?</span>
+        <svg viewBox="0 0 300 120" role="img" aria-label="Left means moving towards the photo's left edge, as the camera sees it">
+          <g id="q2"></g>
+        </svg>
+        <ul>
+          <li>Judge it <b>as the camera sees it</b>, not from the person's own left or right.</li>
+          <li>Heading towards the photo's left edge: <b>_left</b>. Towards the right edge: <b>_right</b>.</li>
+          <li>Walking straight towards or away from the camera: pick the side they are <b>drifting</b> to. Use their feet and the way their body is angled.</li>
+          <li><b>Everyone</b> gets left or right, including people standing still. There is no "other" class.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="examples" aria-labelledby="ex-h">
+    <h2 id="ex-h">Examples</h2>
+    <p>Dashed boxes show what to draw. A red cross marks a mistake to avoid.</p>
+    <div class="scenes" id="scenes"></div>
+  </section>
+
+  <section id="reference" aria-labelledby="ref-h">
+    <h2 id="ref-h">Quick reference</h2>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>You see</th><th>Label</th><th>Box covers</th></tr></thead>
+        <tbody>
+          <tr><td>Someone walking towards the left of the photo</td><td><span class="tag pl">person_left</span></td><td>Head to feet</td></tr>
+          <tr><td>Someone walking towards the right of the photo</td><td><span class="tag pr">person_right</span></td><td>Head to feet</td></tr>
+          <tr><td>Someone riding a bike or e-scooter to the left</td><td><span class="tag wl">wheeled_left</span></td><td>Rider and whole vehicle, wheels included</td></tr>
+          <tr><td>Someone walking or carrying a bike to the right</td><td><span class="tag wr">wheeled_right</span></td><td>Person and bike together</td></tr>
+          <tr><td>Someone standing still, waiting</td><td><span class="tag pl">person_left</span> / <span class="tag pr">person_right</span></td><td>Pick the way they face or are about to go</td></tr>
+          <tr><td>Someone off the zebra crossing (pavement, far side)</td><td>Label as normal</td><td>Counting only the crossing is done in code, not by leaving people out</td></tr>
+          <tr><td>Someone cut off by the photo edge or behind a pole</td><td>Label as normal</td><td>Only the part you can see</td></tr>
+          <tr><td>A parked bike, or a bike rack, with nobody at it</td><td><span class="tag nb">no box</span></td><td></td></tr>
+          <tr><td>A person on a poster, a reflection, a statue</td><td><span class="tag nb">no box</span></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="draw-h">
+    <h2 id="draw-h">Drawing the box</h2>
+    <div class="cols">
+      <div class="list">
+        <h3>Do</h3>
+        <ul>
+          <li><b>Tight edges.</b> Touch the top of the head, the soles of the feet, and the furthest arm or bag.</li>
+          <li><b>One box per person</b>, even in a crowd where boxes overlap.</li>
+          <li><b>Small, far-away people count.</b> Zoom in. If you can tell it is a person, label it.</li>
+          <li><b>Hidden people:</b> box only the visible part. Do not guess where hidden legs would be.</li>
+          <li><b>Wheeled boxes</b> run from the top of the rider's head to the bottom of the lowest wheel, and from the front wheel to the back wheel.</li>
+        </ul>
+      </div>
+      <div class="list never">
+        <h3>Never</h3>
+        <ul>
+          <li>Leave a visible person without a box. The model learns "this is not a person" and starts missing people.</li>
+          <li>Use a <code>bicycle</code>, <code>cyclist</code> or <code>person_other</code> class. Only the four above exist.</li>
+          <li>Draw a person box <b>inside</b> a wheeled box, or a separate box for the bike.</li>
+          <li>Turn on flip augmentation in Roboflow. A mirrored person going left is labelled left but is really going right. Leave all augmentation off: training adds its own.</li>
+          <li>Upload photos anywhere public. Keep them in the private team project only.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="rf-h">
+    <h2 id="rf-h">In Roboflow</h2>
+    <div class="cols">
+      <div class="list">
+        <h3>While labelling</h3>
+        <ol>
+          <li>Work in the private team project, <code>c389_project_final</code>.</li>
+          <li>Tag every upload with where and when it was shot, e.g. <code>crossing_A_2026-11-05</code>, or <code>outside_data</code> for images not taken by us.</li>
+          <li>Check the <b>layers list</b> on each image. A tiny stray box is easier to find there than on the picture.</li>
+          <li>Pre-labelled images arrive with guessed directions. Check every person's direction, not only the flagged ones.</li>
+          <li>The train / valid / test split in Roboflow does not matter. We re-split every export 70/20/10 in code so near-identical photos never land in different splits.</li>
+        </ol>
+      </div>
+      <div class="list">
+        <h3>After each export (YOLO26 format)</h3>
+        <p>Send the zip to whoever runs the scripts. They run, from the repo:</p>
+        <div class="pipeline">python -m src.data.remap_classes EXPORT --out FIXED
+python -m src.data.resplit FIXED --out SPLIT --ratio 70/20/10
+python -m src.data.verify_export SPLIT --expect 4
+python -m src.data.dedupe_check SPLIT</div>
+        <p>An export that still has a <code>bicycle</code> class goes through <code>src.data.to_wheeled</code> instead of <code>remap_classes</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Team rule, agreed 3 Nov 2026: walking or carrying a bike counts as wheeled. Classes follow the lecturer's Twist 2 table. Questions about an odd case: post a screenshot in the group chat before guessing, and add the decision to this guide.
+  </footer>
+</div>
+
+<script>
+(function () {
+  var NS = "http://www.w3.org/2000/svg";
+  var COLOR = { person_left: "var(--c-pl)", person_right: "var(--c-pr)", wheeled_left: "var(--c-wl)", wheeled_right: "var(--c-wr)" };
+
+  function el(name, attrs, parent) {
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  // road with a zebra crossing and a row of tactile tiles at the kerb
+  function road(g, w, h, top) {
+    el("rect", { x: 0, y: top, width: w, height: h - top, "class": "s-road" }, g);
+    for (var x = 8; x < w; x += 30) el("rect", { x: x, y: top + 6, width: 16, height: h - top - 12, "class": "s-stripe", opacity: 0.85 }, g);
+    for (var t = 6; t < w; t += 18) el("rect", { x: t, y: top - 7, width: 9, height: 5, "class": "s-tac" }, g);
+  }
+
+  // a walking figure; feet at (x, y), height s, facing -1 (left) or 1 (right) or 0 (camera)
+  function person(g, x, y, s, facing) {
+    var f = facing || 0, head = s * 0.13;
+    el("circle", { cx: x, cy: y - s + head, r: head, "class": "s-head" }, g);
+    el("rect", { x: x - s * 0.11, y: y - s + head * 2.1, width: s * 0.22, height: s * 0.42, rx: s * 0.06, "class": "s-body" }, g);
+    var hip = y - s * 0.38;
+    var stride = f === 0 ? s * 0.06 : s * 0.16;
+    el("path", { d: "M" + x + " " + hip + " L" + (x - stride) + " " + y + " M" + x + " " + hip + " L" + (x + stride) + " " + y, "class": "s-limb" }, g);
+    var sh = y - s + head * 2.5;
+    el("path", { d: "M" + x + " " + sh + " L" + (x + f * s * 0.14 - (f === 0 ? s * 0.12 : 0)) + " " + (sh + s * 0.3) + " M" + x + " " + sh + " L" + (x - f * s * 0.1 + (f === 0 ? s * 0.12 : 0)) + " " + (sh + s * 0.28), "class": "s-limb", "stroke-width": 4 }, g);
+    if (f !== 0) el("circle", { cx: x + f * head * 0.75, cy: y - s + head * 0.9, r: head * 0.22, "class": "s-body" }, g); // nose hint for facing
+    return { x1: x - s * 0.2, y1: y - s, x2: x + s * 0.2, y2: y };
+  }
+
+  // a bicycle; wheel centres at y - r, front wheel on the side given by dir
+  function bike(g, x, y, r, dir) {
+    var d = dir || 1, a = x - d * r * 1.25, b = x + d * r * 1.25, cy = y - r;
+    el("circle", { cx: a, cy: cy, r: r, "class": "s-wheel" }, g);
+    el("circle", { cx: b, cy: cy, r: r, "class": "s-wheel" }, g);
+    var seat = { x: x - d * r * 0.35, y: cy - r * 1.1 }, bar = { x: b - d * r * 0.25, y: cy - r * 1.35 };
+    el("path", { d: "M" + a + " " + cy + " L" + x + " " + cy + " L" + seat.x + " " + seat.y + " Z M" + x + " " + cy + " L" + (b - d * r * 0.4) + " " + (cy - r * 1.05) + " L" + seat.x + " " + seat.y + " M" + (b - d * r * 0.4) + " " + (cy - r * 1.05) + " L" + b + " " + cy + " M" + (b - d * r * 0.4) + " " + (cy - r * 1.05) + " L" + bar.x + " " + bar.y, "class": "s-frame" }, g);
+    return { x1: Math.min(a, b) - r, y1: cy - r * 1.4, x2: Math.max(a, b) + r, y2: y, seat: seat, bar: bar };
+  }
+
+  // a rider sitting on a bike (dir = travel direction)
+  function rider(g, x, y, r, dir) {
+    var bb = bike(g, x, y, r, dir), d = dir, s = r * 3.4, head = s * 0.13;
+    var hipX = bb.seat.x, hipY = bb.seat.y - 2;
+    el("rect", { x: hipX - s * 0.1 + d * s * 0.04, y: hipY - s * 0.42, width: s * 0.2, height: s * 0.42, rx: s * 0.06, "class": "s-body", transform: "rotate(" + (d * 12) + " " + hipX + " " + hipY + ")" }, g);
+    var hx = hipX + d * s * 0.12, hy = hipY - s * 0.42 - head * 0.9;
+    el("circle", { cx: hx, cy: hy, r: head, "class": "s-head" }, g);
+    el("path", { d: "M" + (hipX + d * s * 0.06) + " " + (hipY - s * 0.32) + " L" + bb.bar.x + " " + bb.bar.y, "class": "s-limb", "stroke-width": 4 }, g);
+    el("path", { d: "M" + hipX + " " + hipY + " L" + (x + d * r * 0.2) + " " + (y - r * 0.6) + " L" + x + " " + (y - r), "class": "s-limb" }, g);
+    return { x1: Math.min(bb.x1, hx - head), y1: hy - head, x2: Math.max(bb.x2, hx + head), y2: bb.y2 };
+  }
+
+  function union(a, b) { return { x1: Math.min(a.x1, b.x1), y1: Math.min(a.y1, b.y1), x2: Math.max(a.x2, b.x2), y2: Math.max(a.y2, b.y2) }; }
+
+  // labelled dashed box with a class tab
+  function box(g, b, cls, opts) {
+    var o = opts || {}, pad = o.pad == null ? 4 : o.pad, c = COLOR[cls] || "var(--muted)";
+    var x = b.x1 - pad, y = b.y1 - pad, w = b.x2 - b.x1 + pad * 2, h = b.y2 - b.y1 + pad * 2;
+    el("rect", { x: x, y: y, width: w, height: h, fill: "none", stroke: c, "stroke-width": 2.5, "stroke-dasharray": o.solid ? "" : "6 3", rx: 2 }, g);
+    if (o.tag !== false) {
+      var label = cls.replace("person_", "person ").replace("wheeled_", "wheeled ");
+      var tw = label.length * 6.1 + 10;
+      var ty = y - 15 < 2 ? y + h + 2 : y - 15;
+      var tx = x + tw > W - 2 ? x + w - tw : x;  // keep the tab inside the frame
+      el("rect", { x: tx, y: ty, width: tw, height: 14, fill: c, rx: 2 }, g);
+      var t = el("text", { x: tx + 5, y: ty + 10.5, fill: "#fff", "font-family": "JetBrains Mono, monospace", "font-size": 9.5, "font-weight": 700 }, g);
+      t.textContent = label;
+    }
+  }
+
+  function arrow(g, x, y, dir, len) {
+    var L = len || 30, e = x + dir * L;
+    el("path", { d: "M" + x + " " + y + " L" + e + " " + y + " M" + (e - dir * 7) + " " + (y - 5) + " L" + e + " " + y + " L" + (e - dir * 7) + " " + (y + 5), "class": "s-arrow" }, g);
+  }
+
+  function cross(g, x, y, s) {
+    var k = s || 9;
+    el("path", { d: "M" + (x - k) + " " + (y - k) + " L" + (x + k) + " " + (y + k) + " M" + (x + k) + " " + (y - k) + " L" + (x - k) + " " + (y + k), "class": "s-cross" }, g);
+  }
+
+  function text(g, x, y, s, anchor) {
+    var t = el("text", { x: x, y: y, "class": "s-text", "text-anchor": anchor || "start" }, g);
+    t.textContent = s;
+  }
+
+  // --- rule illustrations ---
+  (function () {
+    var g = document.getElementById("q1");
+    var r1 = rider(g, 52, 108, 13, 1);  box(g, r1, "wheeled_right", { tag: false });
+    text(g, 52, 14, "riding", "middle");
+    var p2 = person(g, 140, 108, 64, 1), b2 = bike(g, 170, 108, 13, 1); box(g, union(p2, b2), "wheeled_right", { tag: false });
+    text(g, 152, 14, "walking it", "middle");
+    var b3 = bike(g, 255, 108, 13, -1); text(g, 255, 14, "parked", "middle"); text(g, 255, 64, "no box", "middle");
+  })();
+  (function () {
+    var g = document.getElementById("q2");
+    el("rect", { x: 20, y: 18, width: 260, height: 92, "class": "s-edge", rx: 4 }, g);
+    text(g, 26, 14, "photo's left edge");
+    text(g, 274, 14, "right edge", "end");
+    var a = person(g, 95, 100, 62, -1); box(g, a, "person_left", { tag: false }); arrow(g, 80, 58, -1, 38);
+    var b = person(g, 205, 100, 62, 1); box(g, b, "person_right", { tag: false }); arrow(g, 220, 58, 1, 38);
+  })();
+
+  // --- example scenes ---
+  var W = 260, H = 170, TOP = 128;
+  var scenes = [
+    { v: "ok", label: "person_left", title: "Walking left", note: "Body and feet point towards the photo's left edge.", draw: function (g) {
+      var p = person(g, 130, 150, 92, -1); box(g, p, "person_left"); arrow(g, 70, 70, -1, 36); } },
+    { v: "ok", label: "wheeled_right", title: "Riding a bike", note: "One box: top of the head to the bottom of both wheels.", draw: function (g) {
+      var r = rider(g, 130, 152, 20, 1); box(g, r, "wheeled_right"); arrow(g, 200, 60, 1, 30); } },
+    { v: "ok", label: "wheeled_left", title: "Walking a bike", note: "Still wheeled. Box the person and the bike together.", draw: function (g) {
+      var b = bike(g, 98, 152, 19, -1), p = person(g, 160, 152, 96, -1); box(g, union(b, p), "wheeled_left"); arrow(g, 60, 52, -1, 30); } },
+    { v: "no", label: "Separate boxes", title: "Person box + bike box", note: "There is no bicycle class. Merge them into one wheeled box.", draw: function (g) {
+      var r = rider(g, 130, 152, 20, 1);
+      box(g, { x1: 112, y1: r.y1, x2: 150, y2: 118 }, "person_right", { tag: false });
+      el("rect", { x: r.x1 - 4, y: 110, width: r.x2 - r.x1 + 8, height: 46, fill: "none", stroke: "var(--muted)", "stroke-width": 2.5, "stroke-dasharray": "6 3" }, g);
+      cross(g, 220, 40, 11); } },
+    { v: "none", label: "no box", title: "Parked bike", note: "A bike or rack with nobody at it is left unlabelled.", draw: function (g) {
+      bike(g, 90, 140, 17, 1); bike(g, 175, 140, 17, -1); text(g, 130, 60, "nobody with them: no box", "middle"); } },
+    { v: "ok", label: "person_right", title: "Off the crossing", note: "People on the pavement still get a box. The crossing filter is in code.", draw: function (g) {
+      el("rect", { x: 0, y: 92, width: W, height: 30, fill: "var(--line)" }, g);
+      var p = person(g, 200, 118, 62, 1); box(g, p, "person_right");
+      var q = person(g, 70, 152, 80, -1); box(g, q, "person_left"); } },
+    { v: "ok", label: "person_left ×3", title: "Crowd", note: "One box per person, even when the boxes overlap.", draw: function (g) {
+      var a = person(g, 88, 152, 86, -1), b = person(g, 122, 150, 90, -1), c = person(g, 160, 152, 84, -1);
+      box(g, a, "person_left", { tag: false }); box(g, b, "person_left"); box(g, c, "person_left", { tag: false }); } },
+    { v: "ok", label: "person_right", title: "Cut off at the edge", note: "Box the visible part only, right up to the photo edge.", draw: function (g) {
+      var p = person(g, 246, 152, 96, 1); box(g, { x1: p.x1, y1: p.y1, x2: W - 4, y2: p.y2 }, "person_right");
+      el("line", { x1: W - 1, y1: 0, x2: W - 1, y2: H, stroke: "var(--muted)", "stroke-width": 2 }, g); } },
+    { v: "ok", label: "person_left", title: "Walking towards the camera", note: "Pick the side they drift to. This one is drifting left.", draw: function (g) {
+      var p = person(g, 130, 152, 104, 0); box(g, p, "person_left"); arrow(g, 100, 95, -1, 40); text(g, 60, 85, "drifting left", "middle"); } },
+    { v: "no", label: "Box inside a box", title: "Person box inside wheeled", note: "The rider is already inside the wheeled box. Delete the extra one.", draw: function (g) {
+      var r = rider(g, 130, 152, 20, -1); box(g, r, "wheeled_left");
+      box(g, { x1: 112, y1: r.y1 + 6, x2: 152, y2: 124 }, "person_left", { tag: false, pad: 0 }); cross(g, 220, 40, 11); } },
+    { v: "ok", label: "person_right", title: "Standing and waiting", note: "Still labelled. Use the way they face or are about to cross.", draw: function (g) {
+      var p = person(g, 120, 150, 96, 1); box(g, p, "person_right"); text(g, 190, 70, "facing right", "middle"); } },
+    { v: "ok", label: "person_left", title: "Small and far away", note: "Zoom in. If you can tell it is a person, it gets a box.", draw: function (g) {
+      el("rect", { x: 0, y: 70, width: W, height: 10, fill: "var(--line)" }, g);
+      var p = person(g, 190, 78, 30, -1); box(g, p, "person_left", { pad: 3 });
+      var q = person(g, 60, 152, 90, 1); box(g, q, "person_right", { tag: false }); } }
+  ];
+
+  var host = document.getElementById("scenes");
+  scenes.forEach(function (s) {
+    var card = document.createElement("figure");
+    card.className = "scene"; card.style.margin = "0";
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": s.title + ": " + s.note });
+    road(svg, W, H, TOP);
+    var g = el("g", {}, svg);
+    s.draw(g);
+    card.appendChild(svg);
+    var cap = document.createElement("figcaption"); cap.className = "cap";
+    var word = s.v === "ok" ? "Do" : s.v === "no" ? "Don't" : "Leave";
+    cap.innerHTML = '<span class="verdict ' + s.v + '">' + word + ' · ' + s.title + '</span>' +
+      '<span class="label" style="color:' + (COLOR[s.label] || (s.v === "no" ? "var(--bad)" : "var(--muted)")) + '">' + s.label + '</span>' +
+      '<p>' + s.note + '</p>';
+    card.appendChild(cap);
+    host.appendChild(card);
+  });
+})();
+</script>

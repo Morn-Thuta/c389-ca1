@@ -1,30 +1,48 @@
-# C389 CA1: People Counting Assistant + Twist 2 (Cyclists)
+# C389 CA1: People Counting Assistant + Twist 2 (Micromobility crossers)
 
-Counts people moving **left** vs **right** at a pedestrian crossing from a single still image, and (Twist 2) classifies each crosser as **pedestrian** or **cyclist**.
+Counts people moving **left** vs **right** at a pedestrian crossing from a single still image, and (Twist 2) counts **wheeled crossers** (a person riding, walking or carrying a bicycle) moving left and right.
 
 - Full spec: [PRD.md](PRD.md)
 - Team briefing: [docs/CA1_Team_Briefing.md](docs/CA1_Team_Briefing.md)
+- Running the app: [docs/RUN_THE_APP.md](docs/RUN_THE_APP.md), or on Windows put the weights in `weights/` and double-click `run_demo.bat`
+- Data, outside datasets and credits: [docs/DATA_AND_CREDITS.md](docs/DATA_AND_CREDITS.md)
+
+## Final model and results
+
+`final_4cls_ig_v4_m`: YOLO26m trained on Colab (T4) for 150 epochs on `final_ig_v4`
+(1517 train, 132 valid, 66 test). The training log, curves, settings and the one test run are in
+[reports/final_v4_26m/](reports/final_v4_26m/README.md).
+
+| | mAP50 | All four counts exact | Count error per photo |
+|---|---|---|---|
+| Valid (132 photos) | 0.931 | 59.8% | 0.79 |
+| Test (66 photos, run once) | 0.858 | 53.0% | 1.21 |
+
+Known limits (hidden and small people, scooter riders) are listed [there too](reports/final_v4_26m/README.md#known-limits).
+It was chosen over v4 26s, two v5 runs and two tuning runs on the valid set only
+([comparison](reports/final_v4_26m/README.md#models-we-compared-valid-set-threshold-040)).
 
 ## Hard rules (read before you commit)
 
 - `fliplr=0.0` everywhere. No flip augmentation in Roboflow.
-- Class order: `person_left=0`, `person_right=1`, `bicycle=2`.
+- Class order: `person_left=0`, `person_right=1`, `wheeled_left=2`, `wheeled_right=3` (the lecturer's Twist 2 classes).
+- A person **with** a bike or scooter (riding, walking or carrying it) shares **one** `wheeled_*` box with it, in the direction they travel. Parked bikes with nobody at them get no box.
 - `ultralytics==8.4.120` (pinned).
 - **Never** commit the Roboflow API key. Use Colab Secrets (`ROBOFLOW_API_KEY`) or `getpass`.
 - **Never** commit photos, datasets, runs or `*.pt` weights. They stay on the module Drive / Roboflow.
-- Clear notebook outputs before committing.
+- Clear notebook outputs before committing. The one exception is the final training log in `reports/final_v4_26m/training/`, kept as evidence with its photo outputs removed.
 - The test set (`test_v1`) is used once, for the final comparison only.
 
 ## Layout
 
 ```
 notebooks/   lecturer notebooks + our adapted copies (outputs cleared)
-src/         config, data tooling, counting, training, evaluation
-app/         Gradio service
-scripts/     timing and helper scripts
+src/         config, data tooling, counting, crossing area, model wrapper
+app/         Gradio page and service
+scripts/eval valid-set comparison scripts (model choice, settings sweep)
 tests/       pytest
-reports/     generated metrics and plots (no raw photos)
-docs/        team docs
+reports/     training evidence, metrics and plots (no raw photos)
+docs/        team docs, labelling guide, how to run the app
 ```
 
 ## Setup
@@ -47,7 +65,103 @@ pip install -r requirements.txt
 export PROJECT_ROOT=/path/to/C389
 ```
 
+## Data checks (run before every training run)
+
+Run from the repo root, pointing at the downloaded Roboflow export (the folder with `data.yaml`):
+
+```bash
+python -m src.data.verify_export $PROJECT_ROOT/runs/L3/dataset --expect 2
+python -m src.data.dedupe_check $PROJECT_ROOT/runs/L3/dataset
+```
+
+- `verify_export` checks class order, counts per split/class, empty labels, small boxes and bad IDs. `--strict` also fails on warnings.
+- `dedupe_check` fails if any near-duplicate images sit in different splits.
+
+## Pre-labelling (label every person and rider faster)
+
+```bash
+python -m src.data.prelabel ORIGINAL_EXPORT_DIR --out OUTSIDE_REPO_DIR --direction-weights best.pt
+```
+
+For large phone photos (e.g. 2560x1920) add `--imgsz 1280`: the stock model then finds far more small, far-away riders and people.
+
+- **Boxes:** the stock `yolo26n.pt` draws a box for every person and bicycle. A person with a bike becomes one `wheeled_*` box around both; bikes with nobody at them are dropped.
+- **Direction:** our baseline sets each person's left or right.
+- **Existing human labels are kept.** Only missing people and riders are added.
+- **Output:** a 4-class YOLO dataset to upload to Roboflow, plus `prelabel_review.csv`, which lists what was added per image (busiest first, with `direction_unknown` flags).
+- **Every image must still be checked by a person.**
+- **Use the original photos, not the masked export.** Masked people are greyed out and can't be found.
+- **Existing labels are read by class name**, so Roboflow's alphabetical order is converted automatically.
+- **`--split-log path/to/v2_cleaned/split_log.csv`** re-applies the v2 cleaning to the original v1 export. It moves images to the cleaned split and drops the 10 duplicates.
+
+## After every Roboflow export: fix the class order
+
+Roboflow lists classes alphabetically. Rewrite the export to `person_left=0, person_right=1, wheeled_left=2, wheeled_right=3` before checking or training:
+
+```bash
+python -m src.data.remap_classes EXPORT_DIR --out FIXED_DIR
+```
+
+### Older exports with a separate `bicycle` class
+
+Versions labelled before the switch have a person box plus a bicycle box for each cyclist. Convert them instead of remapping:
+
+```bash
+python -m src.data.to_wheeled EXPORT_DIR --out WHEELED_DIR
+```
+
+- A person with a bike (under them or beside their legs) becomes one `wheeled_*` box around both, in the person's direction (rule in `src/linking.py`).
+- A bike with nobody at it is removed. Everyone else stays `person_*`.
+- `to_wheeled_review.csv` lists every image where a rider was merged or a bike removed. **Check those in Roboflow**: the rule was written for model detections, so it can get a hand-drawn box wrong.
+
+## Then split 70/20/10 without leaking burst shots
+
+Generating a version in Roboflow can re-split images at random, which mixes near-identical burst shots across train, valid and test. Copy the fixed export into a clean 70/20/10 split:
+
+```bash
+python -m src.data.resplit FIXED_DIR --out RESPLIT_DIR --ratio 70/20/10
+```
+
+- Near-identical photos (the same distance `dedupe_check` uses) form a **burst group**, and a group always stays in one split.
+- Groups are shared out at 70/20/10 **within each session**, so every location and day appears in every split.
+- Photos with wheeled crossers are shared out first, so riders also land 70/20/10 and valid and test always have some.
+- `--seed` changes the shuffle; the same seed always gives the same split.
+- `resplit_log.csv` in the output records each image's old split, new split and burst group.
+- Then run `verify_export` and `dedupe_check` on `RESPLIT_DIR`.
+
+To fix splits by hand instead, use `--split-log path/to/split_log.csv` and/or `--session DATE=SPLIT`.
+
+Tests: `python -m pytest -q`
+
+## Running the app (Gradio)
+
+Step-by-step for teammates (laptop or Colab, sharing a link): [docs/RUN_THE_APP.md](docs/RUN_THE_APP.md).
+
+```bash
+python -m app.app --weights ../local_data/weights/final_4cls_ig_v4_m.pt          # local, http://127.0.0.1:7860
+python -m app.app --weights /content/drive/.../best.pt --share                    # Colab, public gradio.live link
+```
+
+- **Input:** a file upload (any file reaches the service, so a non-photo is refused on the page with its status
+  and reason) with a preview, and the confidence threshold. **Output:** the photo with its boxes
+  (people red = left, blue = right; wheeled, thick box: orange = left, purple = right), the four counts
+  (`person_left`, `person_right`, `wheeled_left`, `wheeled_right`) with totals, and the JSON reply.
+- **Crossing area (ROI):** click the corners of the crossing on the Output photo. From the third corner on,
+  only crossers whose feet (bottom centre of the box) are inside the green area are counted; the others are
+  drawn grey and reported as `outside_roi`. *Undo last corner* and *Clear crossing area* edit it, and it stays
+  for the next photo. Re-counting the same photo reuses the detections, so clicks and the slider are instant.
+- **Weights:** defaults to `$PROJECT_ROOT/artifacts/L3/best.pt`; override with `--weights` or `MODEL_WEIGHTS`.
+- **From a notebook,** start it with `launch(build_demo(), share=True)` (from `app.app`): Gradio 6 takes the
+  page's theme and stylesheet at launch, so plain `demo.launch()` shows it unstyled.
+- The reply keeps the L4 shape plus `roi` and `outside_roi`. Bad input is refused with a status and a reason
+  (400 nothing sent or empty, 413 too large, 415 not an image, 422 bad threshold or area). Every request logs
+  one line with status, latency and counts.
+
+Code: `src/counting.py` (counts), `src/roi.py` (crossing area), `src/linking.py` (rider + bike to one wheeled
+box, for data tools), `src/detector.py` (model wrapper), `app/service.py` (validate, count, reply, annotate)
+and `app/app.py` (the page).
+
 ## Workflow
 
-- Branch off `main` for each task (`feat/verify-export`, `feat/counting`, ...), then open a PR.
+- `main` holds the submitted version. Branch off `main` for each task, then open a PR.
 - Milestones and acceptance criteria: PRD §11 and §12.

@@ -19,7 +19,9 @@ artifacts/
 *.mp4
 *.mov
 !reports/*.png
+!reports/**/*.png
 reports/error_gallery/
+reports/*.docx
 
 # --- Secrets (Roboflow API key lives in Colab Secrets or getpass, never in git) ---
 .env
@@ -41,3 +43,6 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Model weights for run_demo.bat (never in git)
+weights/

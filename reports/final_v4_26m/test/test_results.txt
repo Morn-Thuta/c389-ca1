@@ -1,0 +1,29 @@
+Test-set evaluation (run once), 2026-11-07
+Model: final_4cls_ig_v4_m.pt (YOLO26m, 150 epochs, data final_ig_v4, fliplr 0.0, ultralytics 8.4.120)
+Test split: 66 photos, 262 boxes (PL 106, PR 110, WL 30, WR 16). Never used for training, review or tuning.
+Settings fixed before the test run: imgsz 640, app stretch 512, CONF_THRESHOLD 0.40, DUPLICATE_IOU 0.70.
+
+Detection (ultralytics val, split=test)
+  all            P 0.848  R 0.832  mAP50 0.858  mAP50-95 0.561
+  person_left    P 0.785  R 0.764  AP50 0.760  AP50-95 0.488
+  person_right   P 0.868  R 0.774  AP50 0.845  AP50-95 0.532
+  wheeled_left   P 0.940  R 0.800  AP50 0.871  AP50-95 0.522
+  wheeled_right  P 0.798  R 0.988  AP50 0.956  AP50-95 0.702
+  speed: 28.5 ms inference per image (RTX 3050 Laptop GPU)
+
+Counting (app pipeline, threshold 0.40)
+  all 4 class counts exact: 35/66 photos (53.0%)
+  off by at most 1 in total: 45/66 (68.2%)
+  total_left and total_right both exact: 37/66 (56.1%)
+  mean absolute count error: 1.21 per photo
+  predicted vs true totals: PL 102/106, PR 100/110, WL 25/30, WR 19/16
+
+Box confusion at 0.40 (IoU 0.45 match; rows true, cols predicted)
+            pL   pR   wL   wR  missed
+  pL        80    6    0    0    20
+  pR        14   86    0    0    10
+  wL         0    0   24    3     3
+  wR         0    0    0   16     0
+  extra      8    8    1    0     -
+
+For comparison, valid set (132 photos) at 0.40: mAP50 0.931, mAP50-95 0.624, MAE 0.79 per photo, 59.8% exact.
