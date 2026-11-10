@@ -46,5 +46,18 @@ On the test set no pedestrian was counted as wheeled and no wheeled crosser as a
 | Tuning A (imgsz 800) | | 53.8% | 1.04 |
 | Tuning B (cls 1.0) | | 58.3% | 0.83 |
 
+## Known limits
+
+- **Hidden and small people are missed more often.** On valid, the model finds 89% of people in clear view
+  but 67% of those at least 30% covered by someone else, and 59% of those under 10% of the photo's height
+  (`model_selection/valid_hidden_small_v4.txt`).
+- **Kick-scooter and skateboard riders are counted as pedestrians.** The training data has almost none.
+  We saw this on extra campus photos that were not used for training or scoring.
+- **Some people are counted in the wrong direction.** On test, 20 people moving left or right were given the
+  opposite direction (`test/test_results.txt`). Bicycles do better because their shape shows the direction.
+- **Flip augmentation is off** (`fliplr 0.0`), because a flipped photo would swap left and right.
+- **Small test set:** 66 photos from the same campus crossings, so the scores may not hold at other places
+  or in other light.
+
 Sources: `model_selection/valid_model_map_and_counts.txt` and `valid_tuning_runs_AB.txt`. The scripts that
 produced them are in [`scripts/eval/`](../../scripts/eval/).

@@ -1,10 +1,11 @@
 # C389 CA1: People Counting Assistant + Twist 2 (Micromobility crossers)
 
-Counts people moving **left** vs **right** at a pedestrian crossing from a single still image, and (Twist 2) counts **wheeled crossers** (a rider on a bike or scooter) moving left and right.
+Counts people moving **left** vs **right** at a pedestrian crossing from a single still image, and (Twist 2) counts **wheeled crossers** (a person riding, walking or carrying a bicycle) moving left and right.
 
 - Full spec: [PRD.md](PRD.md)
 - Team briefing: [docs/CA1_Team_Briefing.md](docs/CA1_Team_Briefing.md)
-- Running the app: [docs/RUN_THE_APP.md](docs/RUN_THE_APP.md)
+- Running the app: [docs/RUN_THE_APP.md](docs/RUN_THE_APP.md), or on Windows put the weights in `weights/` and double-click `run_demo.bat`
+- Data, outside datasets and credits: [docs/DATA_AND_CREDITS.md](docs/DATA_AND_CREDITS.md)
 
 ## Final model and results
 
@@ -17,6 +18,7 @@ Counts people moving **left** vs **right** at a pedestrian crossing from a singl
 | Valid (132 photos) | 0.931 | 59.8% | 0.79 |
 | Test (66 photos, run once) | 0.858 | 53.0% | 1.21 |
 
+Known limits (hidden and small people, scooter riders) are listed [there too](reports/final_v4_26m/README.md#known-limits).
 It was chosen over v4 26s, two v5 runs and two tuning runs on the valid set only
 ([comparison](reports/final_v4_26m/README.md#models-we-compared-valid-set-threshold-040)).
 

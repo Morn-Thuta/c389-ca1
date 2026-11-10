@@ -43,3 +43,6 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Model weights for run_demo.bat (never in git)
+weights/
